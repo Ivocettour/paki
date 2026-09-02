@@ -106,10 +106,15 @@ export default async function InventarioPage({
                           href={`/inventario/${device.id}`}
                           className="block hover:text-accent"
                         >
-                          <span className="font-medium">
+                          {/*
+                            Sin `whitespace-nowrap` el nombre se parte en varias
+                            líneas al angostarse la columna. Es preferible que la
+                            tabla scrollee de costado a que el texto se destroce.
+                          */}
+                          <span className="block font-medium whitespace-nowrap">
                             {device.brandName} {device.modelName}
                           </span>
-                          <span className="block text-[12px] text-fg-tertiary">
+                          <span className="block text-[12px] text-fg-tertiary whitespace-nowrap">
                             {device.color} · {formatStorage(device.storageGb)}
                           </span>
                         </Link>

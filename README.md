@@ -315,6 +315,43 @@ Cada fila enlaza al equipo y, cuando corresponde, al comprobante de la venta que
 lo originó. Los equipos individuales muestran cantidad 1; los accesorios, la
 variación aplicada (`+30`, `−3`).
 
+### Configuración: catálogo de marcas y modelos
+
+Sección `Configuración`, exclusiva de administradores. Acá se cargan las
+**marcas** y los **modelos** que después aparecen al registrar un equipo o una
+compra. Si al local le entra un modelo nuevo, se da de alta desde acá.
+
+Cada modelo lleva su **stock mínimo**: es el umbral que dispara la alerta del
+dashboard. En 0 no avisa.
+
+**Sobre eliminar.** Una marca o un modelo solo se pueden borrar si *nunca* se
+usaron: sin equipos cargados ni compras registradas. Es la única eliminación
+física del sistema, y existe para poder corregir una carga por error. Si ya
+tienen historial, la aplicación lo impide **y la base de datos también**: la
+clave foránea rechaza el borrado incluso por SQL directo.
+
+Renombrar sí está permitido siempre: los equipos apuntan al modelo por su ID, y
+el cambio de nombre se refleja en todo el historial.
+
+Un modelo no se puede mover de marca. Los equipos ya cargados quedarían mal
+atribuidos.
+
+### Auditoría
+
+Sección `Auditoría`, exclusiva de administradores. Registra **quién hizo qué y
+cuándo**, con el valor anterior y el nuevo cuando aplica:
+
+> *Lucía Fernández · Modificación de precio · Equipo*
+> *Precio de venta: $800.000 → $850.000*
+
+Se filtra por usuario, acción, tipo de registro y rango de fechas, y se exporta
+a CSV respetando los filtros. Desde la ficha de cada equipo, **Ver en auditoría**
+abre el historial de ese equipo puntual.
+
+**El registro es de solo lectura**: no hay forma de editar ni borrar entradas
+desde la aplicación. Es deliberado — un registro de auditoría que se puede
+alterar no sirve para auditar.
+
 ### Gestionar usuarios
 
 Sección `Usuarios`, exclusiva de administradores.
@@ -594,6 +631,35 @@ Además, por diseño:
 
 ---
 
+## Estados de la interfaz
+
+Cada sección tiene sus tres estados cubiertos:
+
+- **Cargando**: un esqueleto con la forma de la pantalla que viene, en lugar de
+  una pantalla en blanco. Incluye un aviso para lectores de pantalla
+  ("Cargando el inventario") y respeta `prefers-reduced-motion`.
+- **Vacío**: un mensaje que explica qué falta y, cuando corresponde, el botón
+  para resolverlo.
+- **Error**: página en español con opción de reintentar. **Nunca** muestra el
+  detalle técnico: eso queda en los logs del servidor y al usuario se le da un
+  código para reportarlo.
+
+También hay página propia de **404** para registros inexistentes, y un error
+global por si falla el arranque de la aplicación.
+
+### Accesibilidad
+
+- Enlace **Saltar al contenido** al principio de cada pantalla, para no tener
+  que tabular todo el menú.
+- Los modales atrapan el foco: tabular desde el último control vuelve al
+  primero en vez de escaparse al fondo. Cierran con `Escape` y devuelven el
+  foco al botón que los abrió.
+- Foco visible en toda la aplicación.
+- Las tablas anchas scrollean dentro de su contenedor; la página nunca se mueve
+  de costado.
+
+---
+
 ## Seguridad
 
 - Contraseñas hasheadas con bcrypt (coste 12).
@@ -623,7 +689,7 @@ npm run test:setup
 npm run test
 ```
 
-137 tests que cubren la lógica de negocio crítica:
+166 tests que cubren la lógica de negocio crítica:
 
 - Alta de equipos, con movimiento de stock y auditoría.
 - IMEI único, incluida la reversión completa de la transacción fallida.
@@ -649,6 +715,10 @@ npm run test
 - Que confirmar una compra ingrese equipos y accesorios al inventario.
 - Que una compra fallida no deje stock a medias, ni siquiera parcialmente.
 - Que una compra confirmada no pueda anularse.
+- Comparación de campos: que solo se registre lo que realmente cambió.
+- Que la auditoría deje el precio anterior y el nuevo, atribuidos a su autor.
+- Que no se pueda borrar del catálogo nada que tenga historial.
+- Que sí se pueda borrar lo que nunca se usó, para corregir cargas por error.
 
 Los tests corren contra `paki_test`, **nunca** contra la base de desarrollo:
 hay una verificación explícita que aborta si la URL no apunta a una base de test.
@@ -697,13 +767,14 @@ npm run db:reset
 | 8 — Dashboard y reportes | ✅ Completa |
 | 5 — Movimientos de stock | ✅ Completa |
 | Compras y proveedores | ✅ Completa |
-| 9 — UX/UI | 🔶 Base lista; falta pulido final |
-| 10 — Testing y producción | 🔶 137 tests; falta cobertura de auditoría |
+| Auditoría | ✅ Completa |
+| Configuración (catálogo) | ✅ Completa |
+| 9 — UX/UI | ✅ Completa |
+| 10 — Testing y producción | 🔶 166 tests |
 
-Quedan sin pantalla **Auditoría** y **Configuración**. La base de datos, los
-permisos y los servicios que las sostienen ya están construidos: la auditoría,
-por ejemplo, se viene registrando desde la primera etapa y ya se consulta desde
-la ficha de cada equipo.
+**Todas las secciones del menú tienen pantalla** y la aplicación tiene estados
+de carga, de error y de vacío en todas ellas. Lo que queda es el cierre de la
+Etapa 10.
 
 ---
 

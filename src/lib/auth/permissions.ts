@@ -45,6 +45,7 @@ export const PERMISSIONS = [
   "compras.gestionar",
 
   "configuracion.ver",
+  "catalogo.gestionar",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

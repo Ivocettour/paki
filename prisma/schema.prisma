@@ -134,6 +134,7 @@ enum AuditAction {
   CREAR_ACCESORIO
   MODIFICAR_ACCESORIO
   BAJA_ACCESORIO
+  MODIFICAR_CONFIGURACION
 }
 
 // ---------------------------------------------------------------------------

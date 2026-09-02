@@ -25,6 +25,7 @@ export default async function NuevoEquipoPage() {
         mode="create"
         canEditPrice={can(user?.role, "inventario.editar_precio")}
         canSeePurchasePrice={can(user?.role, "inventario.ver_precio_compra")}
+        canManageCatalog={can(user?.role, "catalogo.gestionar")}
       />
     </div>
   );

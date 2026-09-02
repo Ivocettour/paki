@@ -32,8 +32,43 @@ export function Dialog({
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
 
+    const FOCUSABLE =
+      "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), " +
+      "textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+
+    function focusableElements(): HTMLElement[] {
+      return [...(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])];
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      /*
+       * Trampa de foco.
+       *
+       * Sin esto, tabular desde el último control del modal lleva el foco al
+       * contenido de atrás, que es inalcanzable visualmente: quien navega con
+       * teclado o lector de pantalla queda perdido.
+       */
+      const elements = focusableElements();
+      if (elements.length === 0) return;
+
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !panelRef.current?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -41,10 +76,7 @@ export function Dialog({
     document.body.style.overflow = "hidden";
 
     // Enfoca el primer control del modal al abrirse.
-    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
-      "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
-    );
-    firstFocusable?.focus();
+    focusableElements()[0]?.focus();
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);

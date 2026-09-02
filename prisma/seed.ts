@@ -440,7 +440,12 @@ async function main() {
           action: "REGISTRAR_VENTA",
           entity: "Sale",
           entityId: sale.id,
-          changes: { total, deviceId: device.id },
+          // Mismo formato {anterior, nuevo} que usa la aplicación.
+          changes: {
+            comprobante: { anterior: null, nuevo: sale.saleNumber },
+            total: { anterior: null, nuevo: total },
+            equipos: { anterior: null, nuevo: 1 },
+          },
           createdAt: saleDate,
         },
       });

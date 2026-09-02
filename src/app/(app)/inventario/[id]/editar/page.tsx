@@ -42,6 +42,7 @@ export default async function EditarEquipoPage({
         deviceId={device.id}
         canEditPrice={can(user?.role, "inventario.editar_precio")}
         canSeePurchasePrice={device.canSeePurchasePrice}
+        canManageCatalog={can(user?.role, "catalogo.gestionar")}
         defaultValues={{
           modelId: device.modelId,
           color: device.color,

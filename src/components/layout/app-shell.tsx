@@ -31,6 +31,14 @@ export function AppShell({ sections, user, children }: AppShellProps) {
 
   return (
     <div className="min-h-dvh bg-surface-subtle">
+      {/*
+        Salto al contenido: sin esto, quien navega con teclado tiene que
+        recorrer todo el menú en cada pantalla. Solo se ve al enfocarlo.
+      */}
+      <a href="#contenido" className="skip-link">
+        Saltar al contenido
+      </a>
+
       {/* Sidebar fijo en escritorio */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line-subtle bg-surface-muted lg:flex">
         {sidebar}
@@ -85,7 +93,7 @@ export function AppShell({ sections, user, children }: AppShellProps) {
           />
         </header>
 
-        <main className="px-4 py-8 sm:px-6 lg:px-10">
+        <main id="contenido" tabIndex={-1} className="px-4 py-8 sm:px-6 lg:px-10">
           <div className="mx-auto max-w-[1400px]">{children}</div>
         </main>
       </div>

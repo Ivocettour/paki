@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +34,7 @@ export function DeviceForm({
   deviceId,
   canEditPrice,
   canSeePurchasePrice,
+  canManageCatalog,
   defaultValues,
 }: {
   catalog: Catalog;
@@ -40,6 +42,7 @@ export function DeviceForm({
   deviceId?: string;
   canEditPrice: boolean;
   canSeePurchasePrice: boolean;
+  canManageCatalog: boolean;
   defaultValues?: Partial<FormValues>;
 }) {
   const router = useRouter();
@@ -144,6 +147,20 @@ export function DeviceForm({
                 </optgroup>
               ))}
             </Select>
+            {/* Sin esta salida, un modelo nuevo obliga a abandonar el formulario. */}
+            {canManageCatalog ? (
+              <p className="text-[13px] text-fg-tertiary">
+                ¿No está el modelo?{" "}
+                <Link
+                  href="/configuracion"
+                  className="text-accent hover:underline"
+                  target="_blank"
+                >
+                  Agregalo al catálogo
+                </Link>{" "}
+                y volvé a esta pantalla.
+              </p>
+            ) : null}
           </Field>
 
           <Field label="Color" htmlFor="color" required error={errors.color?.message}>

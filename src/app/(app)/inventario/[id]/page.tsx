@@ -17,6 +17,7 @@ import {
   formatStorage,
 } from "@/lib/constants";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { ChangeList } from "@/components/change-list";
 
 export const metadata = { title: "Detalle del equipo" };
 
@@ -37,6 +38,7 @@ export default async function DetalleEquipoPage({
 
   const user = await getCurrentUser();
   const canEdit = can(user?.role, "inventario.editar");
+  const canSeeAudit = can(user?.role, "auditoria.ver");
 
   const activeSale = device.sales.find((sale) => sale.saleStatus === "COMPLETADA");
 
@@ -161,6 +163,16 @@ export default async function DetalleEquipoPage({
               <CardHeader
                 title="Historial de modificaciones"
                 description="Quién cambió qué, y con qué valores."
+                action={
+                  canSeeAudit ? (
+                    <Link
+                      href={`/auditoria?entity=Device&entityId=${device.id}`}
+                      className="text-[13px] font-medium text-accent hover:underline"
+                    >
+                      Ver en auditoría
+                    </Link>
+                  ) : undefined
+                }
               />
               <ul className="divide-y divide-line-subtle">
                 {device.auditEntries.map((entry) => (
@@ -177,17 +189,9 @@ export default async function DetalleEquipoPage({
                       </div>
                     </div>
 
-                    {entry.changes ? (
-                      <ul className="mt-2 space-y-1">
-                        {Object.entries(entry.changes).map(([field, change]) => (
-                          <li key={field} className="text-[13px] text-fg-secondary">
-                            <span className="text-fg-tertiary">{fieldLabel(field)}:</span>{" "}
-                            <span className="line-through">{formatValue(change.anterior)}</span>{" "}
-                            → <span className="text-fg">{formatValue(change.nuevo)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
+                    <div className="mt-2">
+                      <ChangeList changes={entry.changes} />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -274,28 +278,3 @@ function DataRow({
   );
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  modelId: "Modelo",
-  color: "Color",
-  storageGb: "Capacidad",
-  condition: "Estado del equipo",
-  batteryPercent: "Batería",
-  imei: "IMEI",
-  serialNumber: "Número de serie",
-  purchasePrice: "Precio de compra",
-  salePrice: "Precio de venta",
-  inventoryStatus: "Estado de inventario",
-  entryDate: "Fecha de ingreso",
-  notes: "Observaciones",
-  motivo: "Motivo",
-};
-
-function fieldLabel(field: string): string {
-  return FIELD_LABELS[field] ?? field;
-}
-
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "boolean") return value ? "Sí" : "No";
-  return String(value);
-}

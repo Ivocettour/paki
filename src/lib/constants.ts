@@ -135,6 +135,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   CREAR_ACCESORIO: "Creación de accesorio",
   MODIFICAR_ACCESORIO: "Modificación de accesorio",
   BAJA_ACCESORIO: "Baja de accesorio",
+  MODIFICAR_CONFIGURACION: "Cambio en el catálogo",
 };
 
 export const FINANCING_TYPE_LABELS: Record<FinancingType, string> = {
