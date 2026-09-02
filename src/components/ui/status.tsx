@@ -1,0 +1,22 @@
+import type { DeviceCondition, InventoryStatus } from "@prisma/client";
+import { Badge } from "./badge";
+import { DEVICE_CONDITION_LABELS, INVENTORY_STATUS_LABELS } from "@/lib/constants";
+
+const INVENTORY_TONES = {
+  DISPONIBLE: "success",
+  VENDIDO: "neutral",
+  RESERVADO: "warning",
+  INACTIVO: "danger",
+} as const;
+
+export function InventoryStatusBadge({ status }: { status: InventoryStatus }) {
+  return <Badge tone={INVENTORY_TONES[status]}>{INVENTORY_STATUS_LABELS[status]}</Badge>;
+}
+
+export function ConditionBadge({ condition }: { condition: DeviceCondition }) {
+  return (
+    <Badge tone={condition === "NUEVO_SELLADO" ? "accent" : "neutral"}>
+      {DEVICE_CONDITION_LABELS[condition]}
+    </Badge>
+  );
+}

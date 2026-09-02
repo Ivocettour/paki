@@ -1,0 +1,588 @@
+// Sistema de Gestión Interna — Local de Venta de Celulares
+// Modelo de datos: cada celular es una UNIDAD INDIVIDUAL (Device) con IMEI único.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMINISTRADOR
+  VENDEDOR
+}
+
+enum UserStatus {
+  ACTIVO
+  INACTIVO
+}
+
+/// Estado físico/comercial del equipo. Ampliable con `ALTER TYPE ... ADD VALUE`.
+enum DeviceCondition {
+  NUEVO_SELLADO
+  USADO
+}
+
+/// Tipo de equipo que se gestiona como unidad individual.
+/// Determina qué campos aplican: un parlante no tiene IMEI ni batería medible,
+/// una cámara no tiene capacidad de almacenamiento interno.
+enum DeviceType {
+  CELULAR
+  TABLET
+  RELOJ
+  PARLANTE
+  CAMARA
+  OTRO
+}
+
+/// Rubro del accesorio. Ampliable con `ALTER TYPE ... ADD VALUE`.
+enum AccessoryCategory {
+  FUNDA
+  TEMPLADO
+  PROTECTOR
+  CARGADOR
+  CABLE
+  AURICULARES
+  SOPORTE
+  BATERIA_EXTERNA
+  OTRO
+}
+
+/// Estado de inventario, separado del estado físico del equipo.
+enum InventoryStatus {
+  DISPONIBLE
+  VENDIDO
+  RESERVADO
+  INACTIVO
+}
+
+enum StockMovementType {
+  INGRESO
+  VENTA
+  AJUSTE_POSITIVO
+  AJUSTE_NEGATIVO
+  DEVOLUCION
+  BAJA
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  DEBITO
+  CREDITO
+  OTRO
+}
+
+enum SaleStatus {
+  COMPLETADA
+  ANULADA
+}
+
+/// Quién financia la venta.
+/// Solo FINANCIACION_LOCAL genera deuda del cliente con el local y, por lo
+/// tanto, cuotas a reclamar. En TARJETA el banco liquida el total al local.
+enum FinancingType {
+  CONTADO
+  TARJETA
+  FINANCIACION_LOCAL
+}
+
+/// El estado VENCIDA no se almacena: se deriva de `dueDate` contra la fecha
+/// actual, para que no exista estado obsoleto ni haga falta una tarea programada.
+enum InstallmentStatus {
+  PENDIENTE
+  PAGADA
+  ANULADA
+}
+
+enum PurchaseStatus {
+  BORRADOR
+  CONFIRMADA
+  ANULADA
+}
+
+enum AuditAction {
+  LOGIN
+  CREAR_PRODUCTO
+  MODIFICAR_PRODUCTO
+  MODIFICAR_PRECIO
+  BAJA_PRODUCTO
+  INGRESO_STOCK
+  AJUSTE_STOCK
+  REGISTRAR_VENTA
+  ANULAR_VENTA
+  CREAR_USUARIO
+  MODIFICAR_USUARIO
+  DESACTIVAR_USUARIO
+  CREAR_CLIENTE
+  MODIFICAR_CLIENTE
+  CREAR_COMPRA
+  CONFIRMAR_COMPRA
+  REGISTRAR_PAGO_CUOTA
+  ANULAR_PAGO_CUOTA
+  ANULAR_COMPRA
+  CREAR_PROVEEDOR
+  MODIFICAR_PROVEEDOR
+  CREAR_ACCESORIO
+  MODIFICAR_ACCESORIO
+  BAJA_ACCESORIO
+}
+
+// ---------------------------------------------------------------------------
+// Usuarios
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String     @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String     @unique
+  passwordHash String
+  role         UserRole   @default(VENDEDOR)
+  status       UserStatus @default(ACTIVO)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  devicesCreated     Device[]    @relation("DeviceCreatedBy")
+  devicesUpdated     Device[]    @relation("DeviceUpdatedBy")
+  accessoriesCreated Accessory[] @relation("AccessoryCreatedBy")
+  accessoriesUpdated Accessory[] @relation("AccessoryUpdatedBy")
+  sales           Sale[]          @relation("SaleSeller")
+  salesCancelled  Sale[]          @relation("SaleCancelledBy")
+  stockMovements  StockMovement[]
+  auditLogs       AuditLog[]
+  customers       Customer[]
+  purchases       Purchase[]
+  installments    Installment[]
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo: Marca / Modelo
+// ---------------------------------------------------------------------------
+
+model Brand {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  models DeviceModel[]
+
+  @@map("brands")
+}
+
+model DeviceModel {
+  id        String   @id @default(cuid())
+  brandId   String
+  name      String
+  /// Umbral de alerta de stock bajo para este modelo.
+  minStock  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brand         Brand          @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  devices       Device[]
+  purchaseItems PurchaseItem[]
+
+  @@unique([brandId, name])
+  @@index([brandId])
+  @@map("device_models")
+}
+
+// ---------------------------------------------------------------------------
+// Device — unidad física individual
+// ---------------------------------------------------------------------------
+
+model Device {
+  id      String     @id @default(cuid())
+  type    DeviceType @default(CELULAR)
+  modelId String
+  color   String
+
+  /// Capacidad de almacenamiento en GB (32, 64, 128, 256, 512, 1024...).
+  /// Se guarda numérico para permitir ordenar y agregar valores sin migración.
+  /// Nulo en equipos sin almacenamiento propio, como un parlante.
+  storageGb Int?
+
+  condition       DeviceCondition
+  /// Obligatorio para equipos USADO. Rango 0-100 (validado por CHECK constraint).
+  batteryPercent  Int?
+  /// Único cuando está presente. Nulo permitido para accesorios sin IMEI.
+  imei            String?         @unique
+  serialNumber    String?
+
+  purchasePrice Decimal? @db.Decimal(12, 2)
+  salePrice     Decimal  @db.Decimal(12, 2)
+
+  inventoryStatus InventoryStatus @default(DISPONIBLE)
+  entryDate       DateTime        @default(now())
+  notes           String?
+
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  model          DeviceModel     @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  createdBy      User            @relation("DeviceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      User?           @relation("DeviceUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+  purchaseItem   PurchaseItem?
+
+  @@index([modelId])
+  @@index([inventoryStatus])
+  @@index([condition])
+  @@index([entryDate])
+  @@index([salePrice])
+  @@index([inventoryStatus, modelId])
+  @@index([type])
+  @@index([type, inventoryStatus])
+  /// Índice trigram para buscar por IMEI parcial. Declarado acá para que
+  /// Prisma lo reconozca y no intente descartarlo en cada migración.
+  @@index([imei(ops: raw("gin_trgm_ops"))], type: Gin, map: "devices_imei_trgm_idx")
+  @@map("devices")
+}
+
+/// Producto que se gestiona POR CANTIDAD, no por unidad individual.
+///
+/// Treinta fundas iguales son un registro con stock 30, no treinta registros.
+/// Por eso no lleva IMEI, número de serie ni estado de inventario por unidad:
+/// el stock es un número que sube y baja mediante movimientos.
+model Accessory {
+  id       String            @id @default(cuid())
+  category AccessoryCategory
+  name     String
+  /// Marca en texto libre: los accesorios suelen ser genéricos.
+  brand    String?
+  /// Código interno opcional, único cuando está presente.
+  sku      String?           @unique
+
+  salePrice Decimal @db.Decimal(12, 2)
+
+  /// Cantidad en stock. Nunca se edita a mano desde la aplicación:
+  /// siempre cambia a través de un StockMovement.
+  stockQuantity Int @default(0)
+  minStock      Int @default(0)
+
+  /// Baja lógica: un accesorio con historial nunca se elimina.
+  isActive Boolean @default(true)
+  notes    String?
+
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy      User            @relation("AccessoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      User?           @relation("AccessoryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+  purchaseItems  PurchaseItem[]
+
+  @@index([category])
+  @@index([isActive])
+  @@index([name])
+  /// Búsqueda parcial por nombre de accesorio.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "accessories_name_trgm_idx")
+  @@map("accessories")
+}
+
+// ---------------------------------------------------------------------------
+// Clientes
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  dni       String?  @unique
+  phone     String?
+  email     String?
+  notes     String?
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy User   @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  sales     Sale[]
+
+  @@index([lastName, firstName])
+  @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Ventas
+// ---------------------------------------------------------------------------
+
+model Sale {
+  id         String   @id @default(cuid())
+  /// Comprobante interno correlativo (V-00000001).
+  saleNumber String   @unique
+  saleDate   DateTime @default(now())
+
+  sellerId   String
+  customerId String?
+
+  subtotal Decimal @db.Decimal(12, 2)
+  discount Decimal @default(0) @db.Decimal(12, 2)
+  total    Decimal @db.Decimal(12, 2)
+
+  paymentMethod PaymentMethod
+  status        SaleStatus    @default(COMPLETADA)
+  notes         String?
+
+  financingType FinancingType @default(CONTADO)
+  /// Cantidad de cuotas pactadas (tarjeta o financiación propia).
+  installmentCount Int?
+
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seller         User            @relation("SaleSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+  cancelledBy    User?           @relation("SaleCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items          SaleItem[]
+  stockMovements StockMovement[]
+  installments   Installment[]
+
+  @@index([saleDate])
+  @@index([sellerId])
+  @@index([status])
+  @@index([customerId])
+  @@index([status, saleDate])
+  @@index([financingType])
+  @@map("sales")
+}
+
+/// Cuota de una venta financiada por el local.
+/// Solo se generan cuando `Sale.financingType = FINANCIACION_LOCAL`.
+model Installment {
+  id     String @id @default(cuid())
+  saleId String
+  /// Número de cuota dentro del plan (1..n).
+  number Int
+
+  dueDate DateTime
+  amount  Decimal  @db.Decimal(12, 2)
+
+  status        InstallmentStatus @default(PENDIENTE)
+  paidAt        DateTime?
+  /// Monto efectivamente cobrado, que puede diferir del pactado.
+  paidAmount    Decimal?          @db.Decimal(12, 2)
+  paymentMethod PaymentMethod?
+  notes         String?
+
+  registeredById String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sale         Sale  @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  registeredBy User? @relation(fields: [registeredById], references: [id], onDelete: Restrict)
+
+  @@unique([saleId, number])
+  @@index([dueDate])
+  @@index([status])
+  @@index([status, dueDate])
+  @@map("installments")
+}
+
+/// Línea de venta. Refiere a UN equipo individual o a UN accesorio por
+/// cantidad, nunca a los dos (garantizado por CHECK en la base).
+model SaleItem {
+  id     String @id @default(cuid())
+  saleId String
+
+  deviceId    String?
+  accessoryId String?
+
+  /// Siempre 1 para equipos individuales; la cantidad vendida para accesorios.
+  quantity Int @default(1)
+
+  /// Precio unitario congelado al momento de la venta.
+  unitPrice Decimal @db.Decimal(12, 2)
+  discount  Decimal @default(0) @db.Decimal(12, 2)
+  lineTotal Decimal @db.Decimal(12, 2)
+
+  sale      Sale       @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  device    Device?    @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  accessory Accessory? @relation(fields: [accessoryId], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([deviceId])
+  @@index([accessoryId])
+  @@map("sale_items")
+}
+
+// ---------------------------------------------------------------------------
+// Movimientos de stock — histórico inmutable
+// ---------------------------------------------------------------------------
+
+/// Movimiento de stock. Afecta a un equipo individual (cambio de estado) o a
+/// un accesorio (variación de cantidad), nunca a los dos.
+model StockMovement {
+  id          String            @id @default(cuid())
+  deviceId    String?
+  accessoryId String?
+  type        StockMovementType
+  reason      String
+  userId      String
+  saleId      String?
+  notes       String?
+
+  /// Solo para equipos individuales.
+  previousStatus InventoryStatus?
+  newStatus      InventoryStatus?
+
+  /// Solo para accesorios: variación aplicada (+5 al ingresar, −2 al vender)
+  /// y stock resultante, para poder reconstruir el historial.
+  quantityDelta Int?
+  quantityAfter Int?
+
+  createdAt DateTime @default(now())
+
+  device    Device?    @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  accessory Accessory? @relation(fields: [accessoryId], references: [id], onDelete: Restrict)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  sale      Sale?      @relation(fields: [saleId], references: [id], onDelete: Restrict)
+
+  @@index([deviceId])
+  @@index([accessoryId])
+  @@index([createdAt])
+  @@index([type])
+  @@index([userId])
+  @@index([saleId])
+  @@map("stock_movements")
+}
+
+// ---------------------------------------------------------------------------
+// Auditoría — histórico inmutable
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id       String      @id @default(cuid())
+  userId   String
+  action   AuditAction
+  entity   String
+  entityId String
+  /// { campo: { anterior, nuevo } } para cambios importantes.
+  changes  Json?
+  createdAt DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Proveedores y compras
+// ---------------------------------------------------------------------------
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  cuit      String?
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases Purchase[]
+
+  @@map("suppliers")
+}
+
+model Purchase {
+  id             String         @id @default(cuid())
+  purchaseNumber String         @unique
+  supplierId     String
+  purchaseDate   DateTime       @default(now())
+  total          Decimal        @db.Decimal(12, 2)
+  status         PurchaseStatus @default(BORRADOR)
+  userId         String
+  notes          String?
+  confirmedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  supplier Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items    PurchaseItem[]
+
+  @@index([supplierId])
+  @@index([purchaseDate])
+  @@index([status])
+  @@map("purchases")
+}
+
+/**
+ * Ítem de una compra. Refleja las dos formas de contar stock del sistema:
+ *
+ * - **Equipo**: describe UNA unidad a ingresar. Al confirmar la compra se crea
+ *   el `Device` y se enlaza mediante `deviceId`.
+ * - **Accesorio**: repone un accesorio YA existente del catálogo, sumando
+ *   `quantity` unidades a su stock.
+ *
+ * Un ítem es de un tipo o del otro, nunca de los dos (CHECK en la base).
+ */
+model PurchaseItem {
+  id         String @id @default(cuid())
+  purchaseId String
+
+  // --- Equipo a ingresar --------------------------------------------------
+  modelId        String?
+  deviceType     DeviceType?
+  color          String?
+  storageGb      Int?
+  condition      DeviceCondition?
+  batteryPercent Int?
+  imei           String?
+  serialNumber   String?
+  /// Precio con el que el equipo entra al inventario.
+  salePrice      Decimal?         @db.Decimal(12, 2)
+
+  // --- Accesorio a reponer ------------------------------------------------
+  accessoryId String?
+
+  /// Siempre 1 para equipos; las unidades compradas para accesorios.
+  quantity Int @default(1)
+
+  /// Costo unitario pagado al proveedor.
+  unitCost Decimal @db.Decimal(12, 2)
+
+  /// Device generado al confirmar la compra.
+  deviceId String? @unique
+
+  purchase  Purchase     @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  model     DeviceModel? @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  accessory Accessory?   @relation(fields: [accessoryId], references: [id], onDelete: Restrict)
+  device    Device?      @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseId])
+  @@index([modelId])
+  @@index([accessoryId])
+  @@map("purchase_items")
+}
