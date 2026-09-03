@@ -595,6 +595,9 @@ export async function searchAvailableDevices(
   limit = 10,
   db: DbClient | PrismaClient = prisma,
 ) {
+  // Guarda propia: no depende de que el llamador la valide.
+  await requirePermission("inventario.ver");
+
   const trimmed = term.trim();
   if (trimmed.length < 2) return [];
 

@@ -85,8 +85,51 @@ function generateImei(seed: number): string {
   return `${base}${checkDigit}`;
 }
 
+/**
+ * ¿La conexión apunta a una base local?
+ *
+ * Es la guarda que importa: `NODE_ENV` casi nunca vale "production" en la
+ * máquina de quien desarrolla, así que por sí sola no impide apuntarle sin
+ * querer a la base real. Lo que define el riesgo es el host, no el entorno.
+ */
+function isLocalDatabase(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const { hostname } = new URL(url);
+    return ["localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"].includes(
+      hostname,
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
-  if (process.env.NODE_ENV === "production" && !process.env.ALLOW_PRODUCTION_SEED) {
+  const databaseUrl = process.env.DATABASE_URL;
+  const forced = Boolean(process.env.ALLOW_PRODUCTION_SEED);
+
+  /*
+   * El seed BORRA todo antes de sembrar. Si la conexión no es local, se
+   * detiene: un `npm run db:seed` disparado por accidente con el .env de
+   * producción cargado destruiría los datos reales del local.
+   */
+  if (!isLocalDatabase(databaseUrl) && !forced) {
+    const host = (() => {
+      try {
+        return new URL(databaseUrl ?? "").hostname;
+      } catch {
+        return "desconocido";
+      }
+    })();
+
+    throw new Error(
+      `El seed BORRA todos los datos y la conexión no es local (host: ${host}).\n` +
+        "Se detiene para no destruir información real.\n" +
+        "Si de verdad querés sembrar esta base, definí ALLOW_PRODUCTION_SEED=1.",
+    );
+  }
+
+  if (process.env.NODE_ENV === "production" && !forced) {
     throw new Error(
       "El seed no se ejecuta en producción. Definí ALLOW_PRODUCTION_SEED=1 si realmente lo necesitás.",
     );

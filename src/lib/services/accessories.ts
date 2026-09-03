@@ -428,6 +428,10 @@ export async function deactivateAccessory(id: string, reason: string): Promise<v
 
 /// Accesorios con stock por debajo del mínimo, para el dashboard.
 export async function getLowStockAccessories() {
+  // Guarda propia: aunque hoy solo la llama el dashboard, que ya valida, una
+  // función de servicio no debe depender de que su llamador se acuerde.
+  await requirePermission("inventario.ver");
+
   return prisma.$queryRaw<
     Array<{ id: string; name: string; stockQuantity: number; minStock: number }>
   >`
@@ -443,6 +447,8 @@ export async function getLowStockAccessories() {
 
 /// Búsqueda para el formulario de venta: solo activos y con stock.
 export async function searchAvailableAccessories(term: string, limit = 10) {
+  await requirePermission("inventario.ver");
+
   const trimmed = term.trim();
   if (trimmed.length < 2) return [];
 

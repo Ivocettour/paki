@@ -490,6 +490,7 @@ está en `.gitignore` y no debe subirse al repositorio.
 | `npm run test` | Corre los tests |
 | `npm run test:watch` | Tests en modo interactivo |
 | `npm run test:setup` | Prepara la base de tests (`paki_test`) |
+| `npm run verify` | **Corre las cuatro verificaciones seguidas.** Pasala antes de desplegar |
 
 ---
 
@@ -673,7 +674,9 @@ global por si falla el arranque de la aplicación.
 - El error de login es genérico y el tiempo de respuesta es constante: no revela
   qué emails existen ni si una cuenta está desactivada.
 - Los errores internos nunca llegan al usuario; se registran en el servidor y la
-  pantalla muestra un mensaje comprensible.
+  pantalla muestra un mensaje comprensible, en español, con un código para
+  poder rastrearlo en los logs. Verificado apagando la base: la pantalla no
+  filtra el detalle técnico.
 - Las operaciones que tocan varias tablas (venta, cobro, baja) corren en una
   transacción: si algo falla, no queda nada a medias.
 
@@ -722,6 +725,42 @@ npm run test
 
 Los tests corren contra `paki_test`, **nunca** contra la base de desarrollo:
 hay una verificación explícita que aborta si la URL no apunta a una base de test.
+
+### Protecciones contra destruir datos por accidente
+
+El seed **borra todo** antes de sembrar, así que tiene tres barreras:
+
+| Situación | Qué hace |
+| --- | --- |
+| `DATABASE_URL` **no apunta a localhost** | Se detiene y nombra el host al que iba a apuntar |
+| `NODE_ENV=production` | Se detiene |
+| Falta `SEED_PASSWORD` | Se detiene |
+
+La primera es la que más importa: `NODE_ENV` casi nunca vale `production` en una
+máquina de desarrollo, así que por sí sola no impide dispararle sin querer a la
+base real con el `.env` de producción cargado. **Lo que define el riesgo es el
+host, no el entorno.**
+
+Para sembrar deliberadamente una base remota hay que definir
+`ALLOW_PRODUCTION_SEED=1`.
+
+---
+
+## Deuda técnica conocida
+
+Una sola, anotada acá para que no se descubra por sorpresa.
+
+**Aviso de deprecación de Prisma.** Al correr comandos de base de datos, Prisma
+avisa que la clave `prisma` de `package.json` queda deprecada y se elimina en la
+versión 7. Se intentó migrarla a `prisma.config.ts` y **el cargador de Prisma
+6.19 no logra parsear ese archivo**, así que quedó como está: el aviso es
+cosmético y la alternativa rompía `npm run db:seed`. Al actualizar a Prisma 7
+hay que hacer esa migración.
+
+Fuera de eso, `npm audit` reporta **0 vulnerabilidades**. Las que traía el CLI de
+Prisma (`deepmerge-ts`) se resuelven con un `overrides` en `package.json` que
+fuerza la versión parcheada; está verificado que `prisma validate`, `generate` y
+`db seed` siguen funcionando con ella.
 
 ---
 

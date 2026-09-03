@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# Archivos de entorno: nunca se commitean, contienen credenciales.
 .env*
+
+# Excepción: la plantilla SÍ va al repositorio. Sin ella, un clon nuevo no
+# tiene de dónde copiar la configuración y el README queda sin sentido.
+!.env.example
 
 # vercel
 .vercel
