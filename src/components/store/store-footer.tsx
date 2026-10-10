@@ -90,8 +90,14 @@ export function StoreFooter() {
             Los precios y la disponibilidad pueden cambiar sin aviso. Cada equipo es una unidad
             única: si se vende, deja de aparecer.
           </p>
-          <p className="flex shrink-0 items-center gap-4">
+          <p className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
             <span>© {year} {storeConfig.name}</span>
+            <Link href="/tienda/privacidad" className="hover:text-fg hover:underline">
+              Privacidad
+            </Link>
+            <Link href="/tienda/condiciones" className="hover:text-fg hover:underline">
+              Condiciones
+            </Link>
             <Link href="/login" className="hover:text-fg hover:underline">
               Acceso del personal
             </Link>
