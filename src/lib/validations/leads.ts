@@ -59,6 +59,17 @@ export const sendReplySchema = z.object({
     .optional(),
 });
 
+export const incomingSchema = z.object({
+  leadId: z.string().min(1).optional(),
+  phone: z.string().trim().max(40).optional(),
+  fullName: z.string().trim().max(120).optional(),
+  body: z
+    .string()
+    .trim()
+    .min(1, { error: "Pegá o escribí el mensaje que te mandaron." })
+    .max(4000, { error: "El mensaje es demasiado largo." }),
+});
+
 export const manualReplySchema = z.object({
   leadId: z.string().min(1),
   body: z

@@ -539,6 +539,16 @@ idea de la Mesa Comercial de markq, adaptada a un local de celulares.
   ```
 
   En Vercel, con un Cron Job a las 11:00 UTC (8:00 de Buenos Aires).
+- **Mientras no haya un número de WhatsApp propio del sistema** (el de prueba de Meta solo
+  habla con una lista corta de teléfonos), el panel se usa con WhatsApp "a mano":
+  - **Anotar mensaje recibido** (`/consultas/recibido`, o *Anotar lo que me contestó* dentro de
+    una consulta): se pega el teléfono y el texto que te escribieron a tu WhatsApp personal y
+    queda en la bandeja como una consulta más (se une a la persona si ya existía).
+  - **Responder desde mi WhatsApp:** abre tu chat con el borrador escrito; después *marcar como
+    respondida* deja registrado lo enviado.
+  - No hay forma oficial de conectar un WhatsApp personal a una app: las librerías no oficiales
+    violan las reglas de WhatsApp y pueden bloquear el número. Cuando se registre un número en
+    la Cloud API, todo esto pasa a ser automático.
 - **Probar sin cuentas de WhatsApp:** *Consultas → Simular un mensaje* (administrador)
   entra por el mismo camino que uno real.
 

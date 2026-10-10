@@ -22,6 +22,7 @@ import { InventoryStatusBadge } from "@/components/ui/status";
 import { FollowForm } from "./follow-form";
 import { NotesPanel } from "./notes-panel";
 import { ReassignForm } from "./reassign-form";
+import { IncomingNote } from "./incoming-note";
 import { ManualReply } from "./manual-reply";
 import { ReplyPanel, type TemplateOption } from "./reply-panel";
 
@@ -113,6 +114,10 @@ export default async function ConsultaPage({ params }: { params: Promise<{ id: s
                   );
                 })
               )}
+
+              <div className="pt-2">
+                <IncomingNote leadId={lead.id} />
+              </div>
             </CardBody>
           </Card>
 

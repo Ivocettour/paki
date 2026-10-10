@@ -8,6 +8,8 @@ import { generateDraft } from "@/lib/services/leads/draft";
 import { assertLeadAccess } from "@/lib/services/leads/access";
 import { sendReply, type SendResult } from "@/lib/services/leads/send";
 import { markRepliedManually } from "@/lib/services/leads/manual-reply";
+import { recordIncomingMessage } from "@/lib/services/leads/incoming-manual";
+import { after } from "next/server";
 import {
   addNote,
   createManualLead,
@@ -22,6 +24,7 @@ import { ingestInbound } from "@/lib/services/leads/ingest";
 import { rewriteText } from "@/lib/ai";
 import { storeConfig } from "@/lib/store-config";
 import {
+  incomingSchema,
   manualLeadSchema,
   manualReplySchema,
   noteSchema,
@@ -54,6 +57,26 @@ export async function sendReplyAction(input: unknown): Promise<ActionResult<Send
     const result = await sendReply(data);
     revalidateLeads(data.leadId);
     return result;
+  });
+}
+
+/// Anota un mensaje que un cliente mandó fuera del sistema (WhatsApp personal).
+export async function recordIncomingAction(input: unknown): Promise<ActionResult<{ leadId: string }>> {
+  return runAction(async () => {
+    const data = parseOrThrow(incomingSchema, input);
+    const { leadId } = await recordIncomingMessage(data);
+
+    // El borrador se prepara después de responder: no hace falta esperarlo.
+    after(async () => {
+      try {
+        await generateDraft(leadId);
+      } catch (error) {
+        console.error("[consulta] No se pudo preparar el borrador:", error);
+      }
+    });
+
+    revalidateLeads(leadId);
+    return { leadId };
   });
 }
 

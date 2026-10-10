@@ -39,11 +39,14 @@ export default async function ConsultasPage({
                 <Button variant="secondary">Simular un mensaje</Button>
               </Link>
             ) : null}
-            <Link href="/seguimiento/nuevo">
+            <Link href="/consultas/recibido">
               <Button>
                 <Plus className="size-4" aria-hidden />
-                Cargar contacto
+                Anotar mensaje recibido
               </Button>
+            </Link>
+            <Link href="/seguimiento/nuevo">
+              <Button variant="secondary">Cargar contacto</Button>
             </Link>
           </div>
         }

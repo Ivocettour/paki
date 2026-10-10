@@ -63,7 +63,10 @@ export async function pickAssigneeId(tx: Pick<Prisma.TransactionClient, "user" |
   return null;
 }
 
-export async function ingestInbound(raw: InboundInput): Promise<InboundResult> {
+export async function ingestInbound(
+  raw: InboundInput,
+  options: { assigneeId?: string | null } = {},
+): Promise<InboundResult> {
   const parsed = inboundSchema.safeParse(raw);
   if (!parsed.success) {
     return { status: "invalid", error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -145,7 +148,8 @@ export async function ingestInbound(raw: InboundInput): Promise<InboundResult> {
           email,
           source: input.channel,
           stage: LeadStage.CONSULTA,
-          assigneeId: await pickAssigneeId(tx),
+          // Quien carga el mensaje a mano se queda con la consulta.
+          assigneeId: options.assigneeId ?? (await pickAssigneeId(tx)),
           deviceId: device?.id,
           nextContactAt: receivedAt,
           lastInboundAt: receivedAt,

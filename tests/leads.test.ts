@@ -15,6 +15,7 @@ import {
 } from "@/lib/services/leads/follow-up";
 import { runDailyDigest } from "@/lib/services/leads/digest";
 import { markRepliedManually } from "@/lib/services/leads/manual-reply";
+import { recordIncomingMessage } from "@/lib/services/leads/incoming-manual";
 import { handleWhatsAppEvents } from "@/lib/services/leads/channels";
 import { parseWhatsAppPayload } from "@/lib/integrations/whatsapp/payload";
 import {
@@ -565,5 +566,61 @@ describe("Respuesta enviada desde el WhatsApp propio", () => {
     actAs({ id: fixtures.sellerId, role: "VENDEDOR" });
     await expect(markRepliedManually({ leadId: mine, body: "Hola, te respondo por acá." })).resolves.toBeUndefined();
     await expect(markRepliedManually({ leadId: theirs, body: "Hola, te respondo por acá." })).rejects.toThrow(AppError);
+  });
+});
+
+describe("Mensaje recibido por fuera del sistema", () => {
+  it("anotar un mensaje nuevo crea la consulta, queda esperando respuesta y se asigna a quien lo anota", async () => {
+    actAs({ id: fixtures.sellerId, role: "VENDEDOR" });
+
+    const { leadId, created } = await recordIncomingMessage({
+      phone: "0362 15 4123456",
+      body: "Hola, ¿tenés el S23 en negro?",
+    });
+    expect(created).toBe(true);
+
+    const lead = await testDb.lead.findUniqueOrThrow({ where: { id: leadId }, include: { messages: true } });
+    expect(lead.phone).toBe("+5493624123456");
+    expect(lead.fullName).toBe("WhatsApp +5493624123456");
+    expect(lead.needsReply).toBe(true);
+    expect(lead.assigneeId).toBe(fixtures.sellerId);
+    expect(lead.messages[0]).toMatchObject({ direction: "ENTRANTE", channel: "WHATSAPP" });
+  });
+
+  it("si esa persona ya existe, el mensaje se une a su consulta (aunque escriba el teléfono distinto)", async () => {
+    const leadId = await newLead({ phone: "+54 9 362 412-3456" });
+    await testDb.lead.update({ where: { id: leadId }, data: { needsReply: false } });
+
+    const again = await recordIncomingMessage({ phone: "362 412 3456", body: "Perdón, ¿y en azul?" });
+
+    expect(again).toMatchObject({ leadId, created: false });
+    expect(await testDb.lead.count()).toBe(1);
+    expect((await testDb.lead.findUniqueOrThrow({ where: { id: leadId } })).needsReply).toBe(true);
+  });
+
+  it("se puede anotar lo que contestó alguien desde su propia consulta", async () => {
+    const leadId = await newLead();
+    await markRepliedManually({ leadId, body: "Hola Ana, sí, lo tenemos. ¿Pasás a verlo?" });
+
+    await recordIncomingMessage({ leadId, body: "Sí, paso a la tarde." });
+
+    const lead = await testDb.lead.findUniqueOrThrow({ where: { id: leadId } });
+    expect(lead.needsReply).toBe(true);
+    expect(await testDb.leadMessage.count({ where: { leadId, direction: "ENTRANTE" } })).toBe(2);
+  });
+
+  it("valida el teléfono y el mensaje", async () => {
+    await expect(recordIncomingMessage({ phone: "123", body: "Hola" })).rejects.toThrow(AppError);
+    await expect(recordIncomingMessage({ phone: "362 412 3456", body: "  " })).rejects.toThrow(AppError);
+    expect(await testDb.lead.count()).toBe(0);
+  });
+
+  it("un vendedor no puede colarle un mensaje a la consulta de otro", async () => {
+    const theirs = await newLead({ phone: "362 400-0040", fullName: "Ajena" });
+    await testDb.lead.update({ where: { id: theirs }, data: { assigneeId: sellerB } });
+
+    actAs({ id: fixtures.sellerId, role: "VENDEDOR" });
+    await expect(recordIncomingMessage({ phone: "362 400-0040", body: "Hola" })).rejects.toThrow(/otra persona/);
+    await expect(recordIncomingMessage({ leadId: theirs, body: "Hola" })).rejects.toThrow(AppError);
   });
 });
