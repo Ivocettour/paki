@@ -71,3 +71,17 @@ export function toDateInputValue(value: Date | string): string {
 export function initials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
+
+/// "hace 5 min", "hace 3 h", "hace 2 días": cuánto pasó desde una fecha.
+export function timeAgo(value: Date | string, now: Date = new Date()): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  const minutes = Math.max(0, Math.round((now.getTime() - date.getTime()) / 60_000));
+
+  if (minutes < 1) return "ahora";
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `hace ${days} ${days === 1 ? "día" : "días"}`;
+  return formatDate(date);
+}

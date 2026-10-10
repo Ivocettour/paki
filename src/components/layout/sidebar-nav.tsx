@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   Truck,
   Building2,
+  Inbox,
+  KanbanSquare,
+  Radio,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -37,6 +40,9 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   usuarios: Users,
   auditoria: ShieldCheck,
   configuracion: Settings,
+  consultas: Inbox,
+  seguimiento: KanbanSquare,
+  canales: Radio,
 };
 
 export function SidebarNav({

@@ -13,6 +13,8 @@ import {
 import { storeConfig, whatsappLink } from "@/lib/store-config";
 import { cn, formatCurrency } from "@/lib/utils";
 import { DeviceArt } from "@/components/store/device-art";
+import { InquiryForm } from "@/components/store/inquiry-form";
+import { PhotoGallery } from "@/components/store/photo-gallery";
 import { FinancingOptions } from "@/components/store/financing-options";
 import {
   CONDITION_TEXT,
@@ -143,14 +145,18 @@ export default async function EquipoPage({ params }: { params: Params }) {
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-14">
           <div className="lg:sticky lg:top-20 lg:self-start">
-            <div className="grid h-[380px] place-items-center rounded-[28px] bg-surface-raised px-8 py-10 sm:h-[520px]">
-              <DeviceArt
-                type={device.type}
-                color={device.color}
-                label={`${title}, color ${device.color}`}
-                className="h-full"
-              />
-            </div>
+            <PhotoGallery
+              images={device.imageUrls}
+              alt={`${title}, color ${device.color}`}
+              fallback={
+                <DeviceArt
+                  type={device.type}
+                  color={device.color}
+                  label={`${title}, color ${device.color}`}
+                  className="h-full"
+                />
+              }
+            />
           </div>
 
           <div>
@@ -193,6 +199,12 @@ export default async function EquipoPage({ params }: { params: Params }) {
                   Pasá por el local para llevártelo{storeConfig.address ? `: ${storeConfig.address}` : ""}.
                 </p>
               )}
+              <a
+                href="#consulta"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-accent px-7 text-[17px] text-accent transition-colors hover:bg-accent-soft"
+              >
+                Dejar una consulta
+              </a>
             </div>
 
             <p className="mt-3 flex items-start gap-2 text-[13px] text-fg-tertiary">
@@ -229,6 +241,22 @@ export default async function EquipoPage({ params }: { params: Params }) {
         <div className="mt-12">
           <FinancingOptions price={device.salePrice} plans={plans} />
         </div>
+
+        <section
+          id="consulta"
+          aria-labelledby="consultar"
+          className="mt-8 rounded-[28px] bg-surface-raised p-6 sm:p-8"
+        >
+          <h2 id="consultar" className="text-[24px] font-semibold tracking-[-0.025em] text-fg">
+            ¿Te interesa? Dejanos tu consulta.
+          </h2>
+          <p className="mb-6 mt-1.5 text-[15px] text-fg-secondary">
+            Te respondemos por teléfono o WhatsApp, sin compromiso.
+          </p>
+          <div className="max-w-2xl">
+            <InquiryForm deviceId={device.id} deviceTitle={describe(device)} />
+          </div>
+        </section>
 
         {device.related.length > 0 ? (
           <section aria-labelledby="otras-opciones" className="mt-16">

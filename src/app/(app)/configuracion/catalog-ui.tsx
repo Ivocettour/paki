@@ -18,6 +18,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Field, Input } from "@/components/ui/field";
+import { ModelImage } from "./model-image";
 
 function ErrorBanner({ message }: { message: string | null }) {
   if (!message) return null;
@@ -422,6 +423,13 @@ function ModelRow({
           {model.minStock > 0 ? ` · mínimo ${model.minStock}` : " · sin alerta de stock"}
         </p>
       </div>
+
+      <ModelImage
+        modelId={model.id}
+        modelName={`${brandName} ${model.name}`}
+        imageId={model.imageId}
+        canManage={canManage}
+      />
 
       {isLowStock ? <Badge tone="warning">Stock bajo</Badge> : null}
 

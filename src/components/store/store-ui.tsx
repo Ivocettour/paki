@@ -91,11 +91,21 @@ export function ProductCard({
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-[28px] bg-surface-raised transition-shadow duration-300 hover:shadow-[0_8px_32px_rgb(0_0_0/0.10)]">
       <div className="grid h-[260px] place-items-center bg-surface-muted px-6 pt-8 pb-4">
-        <DeviceArt
-          type={device.type}
-          color={device.color}
-          className="h-full transition-transform duration-500 group-hover:scale-[1.04]"
-        />
+        {device.imageUrls[0] ? (
+          // eslint-disable-next-line @next/next/no-img-element -- imagen de nuestra propia API
+          <img
+            src={device.imageUrls[0]}
+            alt=""
+            loading="lazy"
+            className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        ) : (
+          <DeviceArt
+            type={device.type}
+            color={device.color}
+            className="h-full transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        )}
       </div>
 
       <div className="flex flex-1 flex-col px-6 pb-6 pt-5">

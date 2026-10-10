@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, Search, X } from "lucide-react";
+import { Lock, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StoreNavLink {
@@ -115,6 +115,16 @@ export function StoreNav({
           >
             {searchOpen ? <X className="size-[18px]" aria-hidden /> : <Search className="size-[18px]" aria-hidden />}
           </button>
+
+          {/* Acceso del personal: presente pero discreto, no compite con la tienda. */}
+          <Link
+            href="/login"
+            className={cn(iconButton, "opacity-40 hover:opacity-100 focus-visible:opacity-100")}
+            aria-label="Acceso del personal"
+            title="Acceso del personal"
+          >
+            <Lock className="size-4" aria-hidden />
+          </Link>
 
           <button
             type="button"

@@ -21,6 +21,8 @@ export interface CatalogModel {
   minStock: number;
   deviceCount: number;
   availableCount: number;
+  /// Imagen que usa la tienda mientras un equipo no tenga fotos propias.
+  imageId: string | null;
   /// Un modelo sin equipos ni compras asociadas todavía puede eliminarse.
   canDelete: boolean;
 }
@@ -47,7 +49,7 @@ export async function getCatalogOverview(): Promise<CatalogBrand[]> {
           name: true,
           models: {
             orderBy: { name: "asc" },
-            select: { id: true, name: true, minStock: true },
+            select: { id: true, name: true, minStock: true, image: { select: { id: true } } },
           },
         },
       }),
@@ -81,6 +83,7 @@ export async function getCatalogOverview(): Promise<CatalogBrand[]> {
         minStock: model.minStock,
         deviceCount: devices,
         availableCount: availableCount.get(model.id) ?? 0,
+        imageId: model.image?.id ?? null,
         canDelete: devices === 0 && purchases === 0,
       };
     });

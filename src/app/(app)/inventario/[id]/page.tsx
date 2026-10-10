@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { getDeviceDetail } from "@/lib/services/devices";
+import { listDevicePhotos } from "@/lib/services/device-photos";
 import { getCurrentUser } from "@/lib/auth/session";
 import { can } from "@/lib/auth/permissions";
 import { AppError } from "@/lib/errors";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/constants";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { ChangeList } from "@/components/change-list";
+import { PhotoManager } from "./photo-manager";
 
 export const metadata = { title: "Detalle del equipo" };
 
@@ -36,7 +38,7 @@ export default async function DetalleEquipoPage({
     throw error;
   }
 
-  const user = await getCurrentUser();
+  const [user, photos] = await Promise.all([getCurrentUser(), listDevicePhotos(id)]);
   const canEdit = can(user?.role, "inventario.editar");
   const canSeeAudit = can(user?.role, "auditoria.ver");
 
@@ -77,6 +79,22 @@ export default async function DetalleEquipoPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <Card>
+            <CardHeader
+              title="Fotos"
+              description="Se muestran en la tienda. La primera es la principal."
+            />
+            <CardBody>
+              <PhotoManager
+                deviceId={device.id}
+                photos={photos.photos}
+                canEdit={canEdit}
+                modelImageId={photos.modelImageId}
+                useModelImage={photos.useModelImage}
+              />
+            </CardBody>
+          </Card>
+
           <Card>
             <CardHeader title="Identificación" />
             <CardBody className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">

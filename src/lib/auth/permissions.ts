@@ -46,6 +46,13 @@ export const PERMISSIONS = [
 
   "configuracion.ver",
   "catalogo.gestionar",
+
+  // Consultas y seguimiento de clientes. Un vendedor trabaja solo las que le
+  // asignaron; el administrador ve todas, las reasigna y gestiona los canales.
+  "consultas.ver_propias",
+  "consultas.ver_todas",
+  "consultas.responder",
+  "consultas.gestionar",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -62,6 +69,9 @@ const VENDEDOR_PERMISSIONS: readonly Permission[] = [
   // Anular un cobro sí es corrección, y queda reservado al administrador.
   "cuotas.ver",
   "cuotas.registrar_pago",
+  // Responde y da seguimiento a las consultas que le asignaron.
+  "consultas.ver_propias",
+  "consultas.responder",
 ];
 
 const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {

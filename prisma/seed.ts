@@ -141,6 +141,10 @@ async function main() {
 
   console.log("Limpiando datos previos…");
   // El orden respeta las claves foráneas.
+  // Las consultas arrastran sus mensajes y notas (cascada).
+  await prisma.staffNotification.deleteMany();
+  await prisma.webhookLog.deleteMany();
+  await prisma.lead.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.stockMovement.deleteMany();
   await prisma.installment.deleteMany();
@@ -329,6 +333,86 @@ async function main() {
     });
 
     devices.push(device);
+  }
+
+  console.log("Cargando consultas de clientes…");
+  const DAY = 86_400_000;
+  const demoLeads = [
+    {
+      fullName: "Ana Pérez",
+      phone: "+5493624123456",
+      source: "WEB" as const,
+      stage: "CONSULTA" as const,
+      body: "Hola, ¿tienen disponible este equipo? ¿Cuánto sale en cuotas?",
+      ago: 0.2,
+      needsReply: true,
+      next: 0,
+    },
+    {
+      fullName: "Marcos Díaz",
+      phone: "+5493624000111",
+      source: "WHATSAPP" as const,
+      stage: "PRECIO_ENVIADO" as const,
+      body: "Perfecto, paso hoy a la tarde a verlo.",
+      ago: 1,
+      needsReply: true,
+      next: -1,
+    },
+    {
+      fullName: "Julia Ríos",
+      phone: "+5493624558899",
+      source: "WHATSAPP" as const,
+      stage: "EN_PAUSA" as const,
+      body: "Más adelante te aviso, estoy mirando precios.",
+      ago: 6,
+      needsReply: false,
+      next: 20,
+    },
+    {
+      fullName: "Pablo Núñez",
+      phone: "+5493624770022",
+      source: "MANUAL" as const,
+      stage: "RESERVADO" as const,
+      body: "Dejo la seña mañana.",
+      ago: 2,
+      needsReply: false,
+      next: 1,
+    },
+  ];
+
+  for (const [index, demo] of demoLeads.entries()) {
+    const at = new Date(Date.now() - demo.ago * DAY);
+    const lead = await prisma.lead.create({
+      data: {
+        fullName: demo.fullName,
+        phone: demo.phone,
+        source: demo.source,
+        stage: demo.stage,
+        assigneeId: sellers[index % sellers.length].id,
+        deviceId: devices[index]?.id,
+        nextContactAt: new Date(Date.now() + demo.next * DAY),
+        pauseReason: demo.stage === "EN_PAUSA" ? "Cobra a fin de mes" : null,
+        lastInboundAt: at,
+        lastMessageAt: at,
+        needsReply: demo.needsReply,
+        aiPriority: demo.stage === "EN_PAUSA" ? "BAJA" : demo.stage === "CONSULTA" ? "MEDIA" : "ALTA",
+        aiPriorityReason: "Sugerida por las reglas simples",
+      },
+    });
+    await prisma.leadMessage.create({
+      data: {
+        leadId: lead.id,
+        direction: "ENTRANTE",
+        channel: demo.source === "WHATSAPP" ? "WHATSAPP" : "WEB",
+        body: demo.body,
+        normalizedText: demo.body.toLowerCase(),
+        status: "RECIBIDO",
+        createdAt: at,
+      },
+    });
+    await prisma.leadStageChange.create({
+      data: { leadId: lead.id, fromStage: null, toStage: "CONSULTA", createdAt: at },
+    });
   }
 
   console.log("Registrando una compra pendiente de confirmar…");

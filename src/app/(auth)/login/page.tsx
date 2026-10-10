@@ -22,9 +22,9 @@ export default async function LoginPage({
     <main className="min-h-dvh flex flex-col items-center justify-center bg-surface-subtle px-6 py-12">
       <div className="w-full max-w-[420px]">
         <div className="text-center mb-10">
-          <h1 className="text-display text-fg">Gestión</h1>
+          <h1 className="text-display text-fg">Acceso del personal</h1>
           <p className="mt-3 text-[17px] text-fg-secondary">
-            Sistema interno de inventario y ventas.
+            Para vendedores y administradores.
           </p>
         </div>
 
@@ -35,7 +35,7 @@ export default async function LoginPage({
         <p className="mt-8 text-center text-[13px] text-fg-tertiary">
           Acceso exclusivo para personal autorizado.{" "}
           <Link href="/tienda" className="text-accent hover:underline">
-            Ir a la tienda
+            Volver a la tienda
           </Link>
         </p>
       </div>

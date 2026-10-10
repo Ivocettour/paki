@@ -5,7 +5,10 @@ import { authConfig } from "@/lib/auth/config";
 const { auth } = NextAuth(authConfig);
 
 /// La tienda es pública: cualquiera puede ver los equipos sin iniciar sesión.
-const PUBLIC_ROUTES = ["/login", "/tienda"];
+/// Las fotos de los equipos se muestran en la tienda: las ve cualquiera.
+/// Los webhooks y el cron no tienen sesión de usuario: se autentican solos
+/// (firma de Meta y CRON_SECRET), y exigirles login los dejaría sin funcionar.
+const PUBLIC_ROUTES = ["/login", "/tienda", "/api/webhooks", "/api/cron", "/api/fotos"];
 
 export default auth((req) => {
   const { nextUrl } = req;
@@ -28,10 +31,11 @@ export default auth((req) => {
   }
 
   if (!isLoggedIn) {
-    // Quien llega al dominio sin sesión es, casi siempre, un cliente: se le
-    // muestra la tienda. El personal entra por /login ("Acceso del personal").
+    // La tienda es la pantalla principal: quien llega al dominio sin sesión es
+    // un cliente y ve la tienda en "/" (la URL no cambia). El personal entra
+    // por el botón discreto "Acceso del personal" o directo en /login.
     if (nextUrl.pathname === "/") {
-      return NextResponse.redirect(new URL("/tienda", nextUrl));
+      return NextResponse.rewrite(new URL("/tienda", nextUrl));
     }
 
     const loginUrl = new URL("/login", nextUrl);

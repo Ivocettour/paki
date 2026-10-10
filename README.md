@@ -25,7 +25,7 @@ fundas iguales son **un registro con stock 30**, que sube y baja.
 4. [Roles: qué puede hacer cada uno](#roles-qué-puede-hacer-cada-uno)
 5. [Cómo se usa el sistema](#cómo-se-usa-el-sistema)
 6. [Cuotas y financiación](#cuotas-y-financiación)
-7. [Tienda pública](#tienda-pública) · [Variables de entorno](#variables-de-entorno)
+7. [Consultas y seguimiento](#consultas-y-seguimiento-de-clientes) · [Fotos](#fotos-de-los-equipos) · [Tienda pública](#tienda-pública) · [Variables de entorno](#variables-de-entorno)
 8. [Todos los comandos](#todos-los-comandos)
 9. [Despliegue en Vercel](#despliegue-en-vercel)
 10. [Crear el primer administrador en producción](#crear-el-primer-administrador-en-producción)
@@ -487,10 +487,92 @@ secciones a pantalla completa, tarjetas redondeadas y tipografía grande.
 - Los equipos se dibujan con el color real del producto (no hay fotos cargadas).
 - Los valores de cada cuota salen de los planes de *Configuración*, con la
   misma cuenta que usa el formulario de venta.
-- Quien abre el dominio raíz sin sesión llega a la tienda. El personal entra
-  desde *Acceso del personal* (pie de página) o directamente en `/login`.
+- **La tienda es la pantalla principal:** quien abre el dominio raíz sin sesión ve la tienda
+  en `/`. El personal entra por el candado discreto de la barra (*Acceso del personal*),
+  por el pie de página o directamente en `/login`; al cerrar sesión vuelve a la tienda.
 - Los datos del local (nombre, WhatsApp, dirección, horario, Instagram) se
   configuran con variables `NEXT_PUBLIC_STORE_*`. Todas son opcionales.
+
+## Consultas y seguimiento de clientes
+
+Cuando alguien consulta por un equipo —desde la tienda o por WhatsApp— la
+consulta llega a una **bandeja**, se le asigna un responsable y queda en un
+**tablero de seguimiento** con etapa y fecha de próximo contacto. Es la misma
+idea de la Mesa Comercial de markq, adaptada a un local de celulares.
+
+| Pantalla | Qué hace | Quién |
+| --- | --- | --- |
+| `/consultas` | Bandeja: lo que espera respuesta primero, con prioridad sugerida | Todos (cada vendedor ve solo lo suyo) |
+| `/consultas/<id>` | Conversación, respuesta con borrador de IA, etapa, próximo contacto, notas internas y reasignación | Todos |
+| `/seguimiento` | Tablero por etapas + **Mi día** (lo que vence hoy y lo vencido) | Todos |
+| `/seguimiento/nuevo` | Cargar a mano a alguien que no escribió por ningún canal | Todos |
+| `/seguimiento/equipo` | Carga de cada persona; pasar o repartir una cartera entera | Administrador |
+| `/seguimiento/avisos` | Avisos diarios generados | Administrador |
+| `/canales` | Estado de WhatsApp, IA y cron; registro de webhooks | Administrador |
+
+- **Entrada:** el formulario de la ficha de cada equipo en la tienda y el webhook de
+  WhatsApp entran por el mismo camino. Una misma persona es **una sola consulta**
+  aunque escriba por distintos canales o con el teléfono escrito distinto (se unifica
+  por teléfono o correo). Las consultas nuevas se reparten al vendedor con menos
+  abiertas.
+- **Quién ve qué:** el administrador ve todo; el vendedor solo las consultas que le
+  asignaron y no puede abrir una ajena escribiendo la URL (se valida en el servidor).
+- **Etapas:** Consulta → Precio enviado → Reservado → Vendido, más En pausa (pide
+  motivo) y Perdido (pide por qué). Quien está en pausa, vendido o perdido y vuelve a
+  escribir se reabre solo, para hoy. Cada cambio queda en el historial y en la auditoría.
+- **IA (Groq):** al entrar un mensaje prepara un **borrador** con el historial
+  completo, el equipo consultado, el catálogo disponible y las cuotas **ya calculadas**
+  (la IA no hace cuentas). Sugiere también una prioridad. **Nunca envía nada**: lo
+  revisa y manda una persona. Hay "Otro borrador", "Más breve" y "Más formal". Sin
+  `GROQ_API_KEY`, o si Groq falla, se usa un asistente simple y se avisa en pantalla.
+- **Anti-duplicados:** no se le puede mandar dos veces el mismo texto (ni uno casi
+  igual) a la misma persona. Un índice único en PostgreSQL frena el doble clic.
+- **WhatsApp:** texto libre solo dentro de las 24 h desde su último WhatsApp; fuera de
+  eso (y para quien consultó desde la tienda y nunca escribió por ahí) solo plantillas
+  aprobadas por Meta. La pantalla elige sola qué corresponde.
+- **Aviso diario:** a cada responsable, lo que vence hoy y lo vencido. Es idempotente
+  por persona y día. Por ahora **queda registrado en `/seguimiento/avisos`** (no hay
+  proveedor de correo conectado). Un programador externo debe llamar cada mañana:
+
+  ```bash
+  curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://TU-DOMINIO/api/cron/daily-digest
+  ```
+
+  En Vercel, con un Cron Job a las 11:00 UTC (8:00 de Buenos Aires).
+- **Probar sin cuentas de WhatsApp:** *Consultas → Simular un mensaje* (administrador)
+  entra por el mismo camino que uno real.
+
+### Conectar WhatsApp real
+
+1. En [Meta for Developers](https://developers.facebook.com/apps) crear una app con
+   **WhatsApp** y **Webhooks**. Copiar la *clave secreta* a `META_APP_SECRET`, el
+   *identificador del número* a `WHATSAPP_PHONE_NUMBER_ID` y generar un *token
+   permanente* para `WHATSAPP_ACCESS_TOKEN`. Inventar un `WHATSAPP_VERIFY_TOKEN` largo.
+2. Con la app publicada (https), cargar en Meta la URL `APP_URL/api/webhooks/whatsapp` y
+   el token de verificación (aparecen en **Canales**), y suscribir el campo `messages`.
+3. Pedir en el administrador de WhatsApp las plantillas que se quieran usar (idioma
+   `es_AR`) y cargar nombre y texto **idéntico** al aprobado en
+   `WHATSAPP_TEMPLATE_<CLAVE>_NAME` / `_TEXT` (claves `PRIMERO`, `REENGAGE`, `RETOMAR`,
+   `INFO`, `CITA`; textos de ejemplo en `src/lib/integrations/whatsapp/catalog.ts`).
+4. Definir `WHATSAPP_MODE="live"`, reiniciar y verificar en **Canales** que figure "Listo".
+
+El webhook verifica la firma `X-Hub-Signature-256` sobre el cuerpo crudo y rechaza lo
+que no la tenga. **Esta integración sigue la documentación oficial pero no se pudo
+probar con cuentas reales de Meta**: el formato de los avisos y la firma están cubiertos
+por pruebas.
+
+## Fotos de los equipos
+
+- **Fotos propias:** en la ficha de cada equipo (*Inventario → equipo → Fotos*), hasta 8.
+  La primera es la principal. Se reducen en el navegador antes de subirse.
+- **Imagen del modelo:** en *Configuración → catálogo*, cada modelo puede tener una imagen
+  que usa la tienda **mientras un equipo no tenga fotos propias**. En la ficha de cada
+  equipo se puede elegir mostrar esa imagen o el dibujo con su color.
+- **Orden en la tienda:** fotos propias → imagen del modelo → dibujo ilustrativo.
+- Las imágenes se guardan en la base (sin servicio externo), se validan por su contenido
+  real (JPG, PNG o WebP, máximo 3 MB) y se sirven con caché larga.
+- Cuidado con los derechos: usá fotos propias o imágenes que tengas permiso de usar. Las
+  imágenes de producto de las marcas (por ejemplo, las de apple.com) tienen derechos de autor.
 
 ## Variables de entorno
 
@@ -506,6 +588,10 @@ Plantilla completa en [`.env.example`](.env.example).
 | `NEXT_PUBLIC_STORE_NAME` | No | Nombre del local en la tienda. Por defecto `Paki`. |
 | `NEXT_PUBLIC_STORE_WHATSAPP` | No | WhatsApp con código de país y sin signos. Habilita el botón *Consultar*. |
 | `NEXT_PUBLIC_STORE_ADDRESS` / `_HOURS` / `_INSTAGRAM` | No | Dirección, horario e Instagram que se muestran en la tienda. |
+| `GROQ_API_KEY` / `GROQ_MODEL` / `AI_PROVIDER` | No | IA de los borradores. Sin clave se usa un asistente simple. |
+| `CRON_SECRET` | Para el aviso diario | 16+ caracteres. Sin esto el endpoint del cron queda cerrado. |
+| `APP_URL` | No | URL pública, para los enlaces de los avisos. |
+| `WHATSAPP_MODE` y `WHATSAPP_*` / `META_APP_SECRET` | No | WhatsApp real. En `mock` (defecto) no se envía nada. Ver *Conectar WhatsApp real*. |
 | `ALLOW_PRODUCTION_SEED` | No | Habilita el seed en producción. **No la definas** salvo que sepas exactamente por qué. |
 
 Ningún secreto está en el código ni se expone al navegador. El archivo `.env`

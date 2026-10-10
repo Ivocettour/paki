@@ -17,7 +17,10 @@ export type NavIcon =
   | "reportes"
   | "usuarios"
   | "auditoria"
-  | "configuracion";
+  | "configuracion"
+  | "consultas"
+  | "seguimiento"
+  | "canales";
 
 export interface NavItem {
   href: string;
@@ -45,6 +48,29 @@ const SECTIONS: NavSection[] = [
       { href: "/ventas", label: "Ventas", icon: "ventas", permission: "ventas.ver_propias" },
       { href: "/cuotas", label: "Cuotas", icon: "cuotas", permission: "cuotas.ver" },
       { href: "/clientes", label: "Clientes", icon: "clientes", permission: "clientes.ver" },
+    ],
+  },
+  {
+    title: "Clientes",
+    items: [
+      {
+        href: "/consultas",
+        label: "Consultas",
+        icon: "consultas",
+        permission: "consultas.ver_propias",
+      },
+      {
+        href: "/seguimiento",
+        label: "Seguimiento",
+        icon: "seguimiento",
+        permission: "consultas.ver_propias",
+      },
+      {
+        href: "/canales",
+        label: "Canales",
+        icon: "canales",
+        permission: "consultas.gestionar",
+      },
     ],
   },
   {

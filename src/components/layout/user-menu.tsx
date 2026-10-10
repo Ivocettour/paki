@@ -96,7 +96,7 @@ export function UserMenu({
           <button
             type="button"
             role="menuitem"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => signOut({ callbackUrl: "/" })}
             className="flex w-full items-center gap-2.5 border-t border-line-subtle px-4 py-3 text-left text-[13px] text-fg transition-colors hover:bg-surface-subtle"
           >
             <LogOut className="size-4 text-fg-tertiary" aria-hidden />

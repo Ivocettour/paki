@@ -1,5 +1,9 @@
 import type {
   AccessoryCategory,
+  LeadPriority,
+  LeadSource,
+  LeadStage,
+  MessageStatus,
   AuditAction,
   DeviceCondition,
   DeviceType,
@@ -149,6 +153,12 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   MODIFICAR_ACCESORIO: "Modificación de accesorio",
   BAJA_ACCESORIO: "Baja de accesorio",
   MODIFICAR_CONFIGURACION: "Cambio en el catálogo",
+  ENVIAR_MENSAJE: "Mensaje enviado a un cliente",
+  MODIFICAR_SEGUIMIENTO: "Cambio en el seguimiento",
+  REASIGNAR_CONSULTA: "Consulta reasignada",
+  CREAR_CONTACTO: "Contacto cargado",
+  NOTA_INTERNA: "Nota interna",
+  GENERAR_AVISOS: "Avisos diarios generados",
 };
 
 export const FINANCING_TYPE_LABELS: Record<FinancingType, string> = {
@@ -175,6 +185,48 @@ export type InstallmentDisplayStatus = InstallmentStatus | "VENCIDA";
 export const INSTALLMENT_DISPLAY_LABELS: Record<InstallmentDisplayStatus, string> = {
   ...INSTALLMENT_STATUS_LABELS,
   VENCIDA: "Vencida",
+};
+
+/// Etapas del seguimiento, en el orden en que se muestran en el tablero.
+export const LEAD_STAGE_ORDER: readonly LeadStage[] = [
+  "CONSULTA",
+  "PRECIO_ENVIADO",
+  "RESERVADO",
+  "VENDIDO",
+  "EN_PAUSA",
+  "PERDIDO",
+];
+
+export const LEAD_STAGE_LABELS: Record<LeadStage, string> = {
+  CONSULTA: "Consulta",
+  PRECIO_ENVIADO: "Precio enviado",
+  RESERVADO: "Reservado",
+  VENDIDO: "Vendido",
+  EN_PAUSA: "En pausa",
+  PERDIDO: "Perdido",
+};
+
+/// Etapas cerradas: ya no hay un próximo contacto que perseguir.
+export const CLOSED_LEAD_STAGES: readonly LeadStage[] = ["VENDIDO", "PERDIDO"];
+
+export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  WEB: "Tienda web",
+  WHATSAPP: "WhatsApp",
+  MANUAL: "Cargado a mano",
+};
+
+export const LEAD_PRIORITY_LABELS: Record<LeadPriority, string> = {
+  ALTA: "Alta",
+  MEDIA: "Media",
+  BAJA: "Baja",
+};
+
+export const MESSAGE_STATUS_LABELS: Record<MessageStatus, string> = {
+  RECIBIDO: "Recibido",
+  ENVIADO: "Enviado",
+  ENTREGADO: "Entregado",
+  LEIDO: "Leído",
+  FALLIDO: "No se pudo enviar",
 };
 
 export const PAGE_SIZE = 20;

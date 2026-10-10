@@ -37,6 +37,10 @@ export interface StoreDevice {
   condition: DeviceCondition;
   batteryPercent: number | null;
   salePrice: number;
+  /// Imágenes a mostrar, en orden: las fotos propias del equipo; si no tiene, la
+  /// imagen de su modelo (salvo que se haya apagado); si no hay ninguna, la lista
+  /// queda vacía y la tienda dibuja el equipo.
+  imageUrls: string[];
 }
 
 export interface StoreDevicePage {
@@ -54,7 +58,10 @@ const DEVICE_SELECT = {
   condition: true,
   batteryPercent: true,
   salePrice: true,
-  model: { select: { name: true, brand: { select: { name: true } } } },
+  useModelImage: true,
+  // Solo ids: los bytes de las imágenes se piden aparte, nunca en los listados.
+  photos: { orderBy: [{ position: "asc" }, { createdAt: "asc" }], take: 8, select: { id: true } },
+  model: { select: { name: true, brand: { select: { name: true } }, image: { select: { id: true } } } },
 } satisfies Prisma.DeviceSelect;
 
 type DeviceRow = Prisma.DeviceGetPayload<{ select: typeof DEVICE_SELECT }>;
@@ -70,6 +77,12 @@ function toStoreDevice(row: DeviceRow): StoreDevice {
     condition: row.condition,
     batteryPercent: row.batteryPercent,
     salePrice: toNumber(row.salePrice),
+    imageUrls:
+      row.photos.length > 0
+        ? row.photos.map((photo) => `/api/fotos/${photo.id}`)
+        : row.useModelImage && row.model.image
+          ? [`/api/fotos/modelo/${row.model.image.id}`]
+          : [],
   };
 }
 

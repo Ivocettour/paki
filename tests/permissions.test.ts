@@ -78,6 +78,9 @@ describe("Navegación por rol", () => {
         "Usuarios",
         "Auditoría",
         "Configuración",
+        "Consultas",
+        "Seguimiento",
+        "Canales",
       ]),
     );
   });
@@ -94,6 +97,8 @@ describe("Navegación por rol", () => {
       "Ventas",
       "Cuotas",
       "Clientes",
+      "Consultas",
+      "Seguimiento",
     ]);
   });
 
@@ -102,7 +107,7 @@ describe("Navegación por rol", () => {
       section.items.map((item) => item.href),
     );
 
-    for (const restricted of ["/usuarios", "/auditoria", "/configuracion", "/movimientos"]) {
+    for (const restricted of ["/usuarios", "/auditoria", "/configuracion", "/movimientos", "/canales"]) {
       expect(hrefs).not.toContain(restricted);
     }
   });

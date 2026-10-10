@@ -20,6 +20,10 @@ export const testDb = new PrismaClient({ datasources: { db: { url } } });
 
 /// Vacía todas las tablas respetando el orden de claves foráneas.
 export async function resetDatabase(): Promise<void> {
+  // Las consultas arrastran sus mensajes, notas y borradores (cascada).
+  await testDb.staffNotification.deleteMany();
+  await testDb.webhookLog.deleteMany();
+  await testDb.lead.deleteMany();
   await testDb.auditLog.deleteMany();
   await testDb.stockMovement.deleteMany();
   await testDb.installment.deleteMany();
@@ -29,8 +33,8 @@ export async function resetDatabase(): Promise<void> {
   await testDb.purchaseItem.deleteMany();
   await testDb.purchase.deleteMany();
   await testDb.accessory.deleteMany();
-  await testDb.device.deleteMany();
-  await testDb.deviceModel.deleteMany();
+  await testDb.device.deleteMany(); // arrastra sus fotos (cascada)
+  await testDb.deviceModel.deleteMany(); // arrastra su imagen (cascada)
   await testDb.brand.deleteMany();
   await testDb.financingPlan.deleteMany();
   await testDb.customer.deleteMany();
