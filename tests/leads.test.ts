@@ -16,6 +16,7 @@ import {
 import { runDailyDigest } from "@/lib/services/leads/digest";
 import { markRepliedManually } from "@/lib/services/leads/manual-reply";
 import { recordIncomingMessage } from "@/lib/services/leads/incoming-manual";
+import { notifyOwnerOfInquiry, notifyRecipients } from "@/lib/services/leads/notify-owner";
 import { handleWhatsAppEvents } from "@/lib/services/leads/channels";
 import { parseWhatsAppPayload } from "@/lib/integrations/whatsapp/payload";
 import {
@@ -622,5 +623,39 @@ describe("Mensaje recibido por fuera del sistema", () => {
     actAs({ id: fixtures.sellerId, role: "VENDEDOR" });
     await expect(recordIncomingMessage({ phone: "362 400-0040", body: "Hola" })).rejects.toThrow(/otra persona/);
     await expect(recordIncomingMessage({ leadId: theirs, body: "Hola" })).rejects.toThrow(AppError);
+  });
+});
+
+describe("Aviso al dueño por WhatsApp", () => {
+  const original = process.env.STORE_NOTIFY_WHATSAPP;
+  afterAll(() => {
+    if (original === undefined) delete process.env.STORE_NOTIFY_WHATSAPP;
+    else process.env.STORE_NOTIFY_WHATSAPP = original;
+  });
+
+  it("acepta varios números y descarta los inválidos", () => {
+    process.env.STORE_NOTIFY_WHATSAPP = "+54 9 373 166-7332, 5493625550123 ,abc";
+    expect(notifyRecipients()).toEqual(["5493731667332", "5493625550123"]);
+  });
+
+  it("al entrar una consulta se avisa a cada número y el resultado queda en el registro", async () => {
+    process.env.STORE_NOTIFY_WHATSAPP = "5493731667332,5493625550123";
+    const leadId = await newLead();
+
+    await notifyOwnerOfInquiry(leadId);
+
+    const logs = await testDb.webhookLog.findMany({ where: { source: "aviso" } });
+    expect(logs).toHaveLength(2);
+    expect(logs.every((l) => l.outcome === "ok")).toBe(true);
+    expect(logs.map((l) => l.detail).join(" ")).toContain("+5493731667332");
+  });
+
+  it("nunca lanza: sin destinatarios o con una consulta inexistente no pasa nada", async () => {
+    process.env.STORE_NOTIFY_WHATSAPP = "";
+    await expect(notifyOwnerOfInquiry("no-existe")).resolves.toBeUndefined();
+
+    process.env.STORE_NOTIFY_WHATSAPP = "5493731667332";
+    await expect(notifyOwnerOfInquiry("no-existe")).resolves.toBeUndefined();
+    expect(await testDb.webhookLog.count({ where: { source: "aviso" } })).toBe(0);
   });
 });

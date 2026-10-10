@@ -22,7 +22,7 @@ export interface FieldDef {
   max?: number;
 }
 
-export type CatalogKey = "PRIMERO" | "REENGAGE" | "RETOMAR" | "INFO" | "CITA";
+export type CatalogKey = "PRIMERO" | "REENGAGE" | "RETOMAR" | "INFO" | "CITA" | "AVISO";
 
 export interface CatalogEntry {
   key: CatalogKey;
@@ -97,6 +97,24 @@ export const TEMPLATE_CATALOG: readonly CatalogEntry[] = [
     ],
   },
 ];
+
+/**
+ * Aviso interno: se le manda al DUEÑO del local cuando entra una consulta nueva
+ * por la tienda. No está en `TEMPLATE_CATALOG` porque no es para escribirle a
+ * clientes: no aparece en el selector de la bandeja.
+ *
+ * Variables: {{1}} local, {{2}} quién consulta, {{3}} teléfono, {{4}} equipo,
+ * {{5}} el mensaje.
+ */
+export const NOTIFY_TEMPLATE: CatalogEntry = {
+  key: "AVISO",
+  label: "Aviso de consulta nueva (interno)",
+  hint: "Se le manda al dueño del local cuando entra una consulta por la tienda.",
+  mockName: "aviso_consulta_nueva",
+  mockText: () =>
+    "Nueva consulta en {{1}} de {{2}} (tel. {{3}}) sobre {{4}}: {{5}}. Respondela desde el panel de consultas.",
+  fields: [],
+};
 
 /// Meta no admite saltos de línea ni tabulaciones en una variable, ni espacios repetidos.
 export function cleanVariable(text: string): string {
