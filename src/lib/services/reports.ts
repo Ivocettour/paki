@@ -2,6 +2,7 @@ import { InventoryStatus, Prisma, SaleStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/session";
 import { toNumber, toNullableNumber } from "@/lib/serialize";
+import { DEVICE_CONDITION_LABELS } from "@/lib/constants";
 import type { ReportFilters } from "@/lib/validations/report";
 
 /// Límite de filas que se muestran en pantalla. La exportación a CSV no lo aplica.
@@ -96,7 +97,7 @@ export async function getInventoryReport(filters: ReportFilters, limit?: number)
       device.color,
       device.storageGb ? `${device.storageGb} GB` : null,
       device.batteryPercent !== null ? `batería ${device.batteryPercent}%` : null,
-      device.condition === "USADO" ? "usado" : "nuevo sellado",
+      DEVICE_CONDITION_LABELS[device.condition].toLowerCase(),
     ]
       .filter(Boolean)
       .join(" · "),

@@ -27,8 +27,21 @@ export function formatStorage(gb: number | null | undefined): string {
 
 export const DEVICE_CONDITION_LABELS: Record<DeviceCondition, string> = {
   NUEVO_SELLADO: "Nuevo sellado",
+  NUEVO_SIN_SELLAR: "Nuevo sin sellar",
   USADO: "Usado",
 };
+
+/// Explicación breve de cada estado, para formularios y para la tienda.
+export const DEVICE_CONDITION_DESCRIPTIONS: Record<DeviceCondition, string> = {
+  NUEVO_SELLADO: "Sin uso y en su caja original cerrada.",
+  NUEVO_SIN_SELLAR: "Sin uso, pero con la caja o el film abierto.",
+  USADO: "Con uso previo. Se informa el estado de la batería.",
+};
+
+/// Un equipo nuevo, sellado o no, no tiene uso previo.
+export function isNewCondition(condition: DeviceCondition): boolean {
+  return condition !== "USADO";
+}
 
 export const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
   CELULAR: "Celular",

@@ -264,6 +264,12 @@ export default async function DetalleVentaPage({
                   <span className="tabular">−{formatCurrency(sale.discount)}</span>
                 </div>
               ) : null}
+              {sale.surchargeAmount > 0 ? (
+                <div className="flex justify-between text-[14px] text-fg-secondary">
+                  <span>Recargo por financiación ({sale.surchargePercent}%)</span>
+                  <span className="tabular">+{formatCurrency(sale.surchargeAmount)}</span>
+                </div>
+              ) : null}
               <div className="flex items-baseline justify-between border-t border-line-subtle pt-3">
                 <span className="text-[15px] font-medium">Total</span>
                 <span className="tabular text-[24px] font-semibold tracking-[-0.03em]">

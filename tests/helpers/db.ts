@@ -32,6 +32,7 @@ export async function resetDatabase(): Promise<void> {
   await testDb.device.deleteMany();
   await testDb.deviceModel.deleteMany();
   await testDb.brand.deleteMany();
+  await testDb.financingPlan.deleteMany();
   await testDb.customer.deleteMany();
   await testDb.supplier.deleteMany();
   await testDb.user.deleteMany();

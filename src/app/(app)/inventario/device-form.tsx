@@ -215,7 +215,7 @@ export function DeviceForm({
             hint={
               batteryRequired
                 ? "Obligatorio para equipos usados."
-                : "Opcional en equipos nuevos sellados."
+                : "Opcional en equipos nuevos."
             }
           >
             <Controller

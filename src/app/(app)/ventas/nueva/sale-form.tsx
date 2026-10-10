@@ -13,7 +13,12 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { AccessoryCategory, FinancingType, PaymentMethod } from "@prisma/client";
+import {
+  AccessoryCategory,
+  FinancingType,
+  PaymentMethod,
+  type DeviceCondition,
+} from "@prisma/client";
 import {
   createSaleAction,
   searchCustomersAction,
@@ -33,6 +38,8 @@ import { Field, Input, Label, Select, Textarea } from "@/components/ui/field";
 import { BatteryIndicator } from "@/components/ui/badge";
 import { ConditionBadge } from "@/components/ui/status";
 import { formatCurrency, toDateInputValue } from "@/lib/utils";
+import { MAX_SURCHARGE_PERCENT, quoteFinancing } from "@/lib/domain/financing";
+import type { FinancingPlanItem } from "@/lib/services/financing";
 import { CustomerDialog } from "@/components/customer-dialog";
 
 interface DeviceOption {
@@ -40,7 +47,7 @@ interface DeviceOption {
   imei: string | null;
   color: string;
   storageGb: number;
-  condition: "NUEVO_SELLADO" | "USADO";
+  condition: DeviceCondition;
   batteryPercent: number | null;
   salePrice: number;
   brandName: string;
@@ -76,7 +83,7 @@ function defaultFirstDueDate(): string {
   return toDateInputValue(date);
 }
 
-export function SaleForm() {
+export function SaleForm({ financingPlans }: { financingPlans: FinancingPlanItem[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
@@ -90,6 +97,8 @@ export function SaleForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.EFECTIVO);
   const [financingType, setFinancingType] = useState<FinancingType>(FinancingType.CONTADO);
   const [installmentCount, setInstallmentCount] = useState("3");
+  // Recargo (interés) por financiación. Arranca con el del plan, pero es manual.
+  const [surchargePercent, setSurchargePercent] = useState("0");
   const [firstDueDate, setFirstDueDate] = useState(defaultFirstDueDate);
   const [notes, setNotes] = useState("");
 
@@ -98,15 +107,44 @@ export function SaleForm() {
     accessoryLines.reduce((sum, line) => sum + line.salePrice * line.quantity, 0);
   const productCount = items.length + accessoryLines.length;
   const discountValue = Number(discount) || 0;
-  const total = Math.max(0, subtotal - discountValue);
   const discountTooBig = discountValue > subtotal;
+  const base = Math.max(0, subtotal - discountValue);
 
   const generatesInstallments = financingType === FinancingType.FINANCIACION_LOCAL;
   const hasInstallments = financingType !== FinancingType.CONTADO;
-  const installmentAmount =
-    hasInstallments && Number(installmentCount) > 0
-      ? total / Number(installmentCount)
-      : 0;
+
+  const surchargeValue = hasInstallments ? Number(surchargePercent) || 0 : 0;
+  const surchargeInvalid = surchargeValue < 0 || surchargeValue > MAX_SURCHARGE_PERCENT;
+  // Mismo cálculo que hace el servidor: lo que se ve es lo que se guarda.
+  const quote = quoteFinancing(
+    base,
+    surchargeInvalid ? 0 : surchargeValue,
+    Number(installmentCount) || 1,
+  );
+  const total = quote.total;
+  const installmentAmount = quote.installmentAmount;
+
+  const plansForType = financingPlans.filter((plan) => plan.type === financingType);
+
+  /// Al elegir otra cantidad de cuotas se sugiere el recargo de su plan.
+  /// Si no hay plan para esa cantidad, el valor actual no se toca.
+  function changeInstallmentCount(value: string) {
+    setInstallmentCount(value);
+    const plan = financingPlans.find(
+      (candidate) => candidate.type === financingType && candidate.installments === Number(value),
+    );
+    if (plan) setSurchargePercent(String(plan.surchargePercent));
+  }
+
+  function changeFinancingType(type: FinancingType) {
+    setFinancingType(type);
+    if (type === FinancingType.CONTADO) return;
+
+    const plan = financingPlans.find(
+      (candidate) => candidate.type === type && candidate.installments === Number(installmentCount),
+    );
+    setSurchargePercent(String(plan?.surchargePercent ?? 0));
+  }
 
   function addDevice(device: DeviceOption) {
     setItems((current) =>
@@ -162,6 +200,7 @@ export function SaleForm() {
         paymentMethod,
         financingType,
         installmentCount: hasInstallments ? Number(installmentCount) : null,
+        surchargePercent: surchargeValue,
         firstDueDate: generatesInstallments ? new Date(firstDueDate) : null,
         notes,
       });
@@ -378,7 +417,7 @@ export function SaleForm() {
             <Select
               id="financingType"
               value={financingType}
-              onChange={(event) => setFinancingType(event.target.value as FinancingType)}
+              onChange={(event) => changeFinancingType(event.target.value as FinancingType)}
             >
               {Object.values(FinancingType).map((type) => (
                 <option key={type} value={type}>
@@ -397,9 +436,74 @@ export function SaleForm() {
                 min={1}
                 max={60}
                 value={installmentCount}
-                onChange={(event) => setInstallmentCount(event.target.value)}
+                onChange={(event) => changeInstallmentCount(event.target.value)}
               />
             </Field>
+          ) : null}
+
+          {hasInstallments ? (
+            <Field
+              label="Recargo / interés (%)"
+              htmlFor="surchargePercent"
+              error={
+                surchargeInvalid
+                  ? `Ingresá un porcentaje entre 0 y ${MAX_SURCHARGE_PERCENT}.`
+                  : undefined
+              }
+              hint={
+                plansForType.length > 0
+                  ? "Se completa según el plan, pero podés escribir el que quieras."
+                  : "0 = sin interés. Se aplica sobre el total menos el descuento."
+              }
+            >
+              <Input
+                id="surchargePercent"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={MAX_SURCHARGE_PERCENT}
+                step="0.01"
+                value={surchargePercent}
+                onChange={(event) => setSurchargePercent(event.target.value)}
+                aria-invalid={surchargeInvalid}
+              />
+            </Field>
+          ) : null}
+
+          {hasInstallments && plansForType.length > 0 ? (
+            <div className="sm:col-span-2">
+              <p className="mb-1.5 text-[13px] font-medium text-fg-secondary">
+                Planes disponibles
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {plansForType.map((plan) => {
+                  const selected =
+                    Number(installmentCount) === plan.installments &&
+                    Number(surchargePercent) === plan.surchargePercent;
+
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setInstallmentCount(String(plan.installments));
+                        setSurchargePercent(String(plan.surchargePercent));
+                      }}
+                      className={
+                        "rounded-full border px-3.5 py-1.5 text-[13px] transition-colors " +
+                        (selected
+                          ? "border-accent bg-accent-soft font-medium text-accent"
+                          : "border-line text-fg-secondary hover:bg-surface-subtle")
+                      }
+                    >
+                      {plan.installments} {plan.installments === 1 ? "cuota" : "cuotas"} ·{" "}
+                      {plan.surchargePercent === 0 ? "sin interés" : `+${plan.surchargePercent}%`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ) : null}
 
           {generatesInstallments ? (
@@ -462,6 +566,13 @@ export function SaleForm() {
             </div>
           ) : null}
 
+          {quote.surcharge > 0 ? (
+            <div className="flex justify-between text-[14px] text-fg-secondary">
+              <span>Recargo por financiación ({surchargeValue}%)</span>
+              <span className="tabular">+{formatCurrency(quote.surcharge)}</span>
+            </div>
+          ) : null}
+
           <div className="flex items-baseline justify-between border-t border-line-subtle pt-3">
             <span className="text-[15px] font-medium text-fg">Total</span>
             <span className="tabular text-[26px] font-semibold tracking-[-0.03em] text-fg">
@@ -497,7 +608,7 @@ export function SaleForm() {
           type="submit"
           size="lg"
           loading={isPending}
-          disabled={productCount === 0 || discountTooBig}
+          disabled={productCount === 0 || discountTooBig || surchargeInvalid}
         >
           Registrar venta
         </Button>

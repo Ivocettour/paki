@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { LoginForm } from "./login-form";
@@ -32,7 +33,10 @@ export default async function LoginPage({
         </div>
 
         <p className="mt-8 text-center text-[13px] text-fg-tertiary">
-          Acceso exclusivo para personal autorizado.
+          Acceso exclusivo para personal autorizado.{" "}
+          <Link href="/tienda" className="text-accent hover:underline">
+            Ir a la tienda
+          </Link>
         </p>
       </div>
     </main>

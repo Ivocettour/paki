@@ -97,6 +97,46 @@ describe("Registro de venta", () => {
     expect(audit.userId).toBe(fixtures.adminId);
   });
 
+  it("suma el recargo de la financiación al total y a las cuotas", async () => {
+    const deviceId = await givenAvailableDevice("350001000000018", 1_000_000);
+
+    const sale = await createSale({
+      ...baseSale,
+      deviceIds: [deviceId],
+      discount: 100_000,
+      financingType: FinancingType.FINANCIACION_LOCAL,
+      installmentCount: 3,
+      firstDueDate: new Date("2026-03-10"),
+      surchargePercent: 20,
+    });
+
+    // 20 % sobre (1.000.000 − 100.000) = 180.000.
+    const saved = await testDb.sale.findUniqueOrThrow({ where: { id: sale.id } });
+    expect(Number(saved.subtotal)).toBe(1_000_000);
+    expect(Number(saved.surchargePercent)).toBe(20);
+    expect(Number(saved.surchargeAmount)).toBe(180_000);
+    expect(Number(saved.total)).toBe(1_080_000);
+
+    // Las cuotas reparten el total con recargo, sin perder un peso.
+    const installments = await testDb.installment.findMany({ where: { saleId: sale.id } });
+    expect(installments).toHaveLength(3);
+    expect(installments.reduce((sum, item) => sum + Number(item.amount), 0)).toBeCloseTo(
+      1_080_000,
+      2,
+    );
+  });
+
+  it("ignora el recargo cuando la venta es de contado", async () => {
+    const deviceId = await givenAvailableDevice("350001000000018", 700_000);
+
+    const sale = await createSale({ ...baseSale, deviceIds: [deviceId], surchargePercent: 50 });
+
+    const saved = await testDb.sale.findUniqueOrThrow({ where: { id: sale.id } });
+    expect(Number(saved.surchargePercent)).toBe(0);
+    expect(Number(saved.surchargeAmount)).toBe(0);
+    expect(Number(saved.total)).toBe(700_000);
+  });
+
   it("no permite vender dos veces el mismo equipo", async () => {
     const deviceId = await givenAvailableDevice("350001000000018");
     await createSale({ ...baseSale, deviceIds: [deviceId] });

@@ -5,7 +5,9 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { can } from "@/lib/auth/permissions";
 import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { listFinancingPlans } from "@/lib/services/financing";
 import { BrandSection, NewBrandButton } from "./catalog-ui";
+import { FinancingPlans } from "./financing-ui";
 
 export const metadata = { title: "Configuración" };
 
@@ -13,7 +15,10 @@ export default async function ConfiguracionPage() {
   const user = await getCurrentUser();
   if (!can(user?.role, "configuracion.ver")) redirect("/");
 
-  const brands = await getCatalogOverview();
+  const [brands, financingPlans] = await Promise.all([
+    getCatalogOverview(),
+    listFinancingPlans(),
+  ]);
   const canManage = can(user?.role, "catalogo.gestionar");
 
   const modelCount = brands.reduce((sum, brand) => sum + brand.models.length, 0);
@@ -22,7 +27,7 @@ export default async function ConfiguracionPage() {
     <>
       <PageHeader
         title="Configuración"
-        description="Catálogo de marcas y modelos. Es lo que aparece al cargar un equipo o registrar una compra."
+        description="Catálogo de marcas y modelos, y recargos por financiación en cuotas."
         action={canManage ? <NewBrandButton /> : null}
       />
 
@@ -60,6 +65,8 @@ export default async function ConfiguracionPage() {
           ))}
         </div>
       )}
+
+      <FinancingPlans plans={financingPlans} canManage={canManage} />
 
       <Card className="mt-6">
         <CardHeader title="Sobre las eliminaciones" />

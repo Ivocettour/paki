@@ -4,7 +4,8 @@ import { authConfig } from "@/lib/auth/config";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_ROUTES = ["/login"];
+/// La tienda es pública: cualquiera puede ver los equipos sin iniciar sesión.
+const PUBLIC_ROUTES = ["/login", "/tienda"];
 
 export default auth((req) => {
   const { nextUrl } = req;
@@ -27,6 +28,12 @@ export default auth((req) => {
   }
 
   if (!isLoggedIn) {
+    // Quien llega al dominio sin sesión es, casi siempre, un cliente: se le
+    // muestra la tienda. El personal entra por /login ("Acceso del personal").
+    if (nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/tienda", nextUrl));
+    }
+
     const loginUrl = new URL("/login", nextUrl);
     // Se preserva el destino para volver ahí después de iniciar sesión.
     if (nextUrl.pathname !== "/") {

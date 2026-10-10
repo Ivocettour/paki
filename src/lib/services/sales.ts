@@ -12,6 +12,7 @@ import { errors } from "@/lib/errors";
 import { PAGE_SIZE } from "@/lib/constants";
 import { toNumber } from "@/lib/serialize";
 import { buildInstallmentPlan } from "@/lib/domain/installments";
+import { surchargeAmount } from "@/lib/domain/financing";
 import { recordAudit } from "./audit";
 import type { CancelSaleInput, CreateSaleInput, SaleFilters } from "@/lib/validations/sale";
 
@@ -136,6 +137,8 @@ export async function getSaleDetail(id: string) {
       sellerId: true,
       subtotal: true,
       discount: true,
+      surchargePercent: true,
+      surchargeAmount: true,
       total: true,
       paymentMethod: true,
       financingType: true,
@@ -210,6 +213,8 @@ export async function getSaleDetail(id: string) {
     saleDate: sale.saleDate,
     subtotal: toNumber(sale.subtotal),
     discount: toNumber(sale.discount),
+    surchargePercent: toNumber(sale.surchargePercent),
+    surchargeAmount: toNumber(sale.surchargeAmount),
     total: toNumber(sale.total),
     paymentMethod: sale.paymentMethod,
     financingType: sale.financingType,
@@ -371,7 +376,15 @@ export async function createSale(input: CreateSaleInput): Promise<{ id: string; 
       throw errors.regla("El descuento no puede superar el total de la venta.");
     }
 
-    const total = subtotal - input.discount;
+    // El recargo solo existe cuando hay financiación, y se calcula siempre en
+    // el servidor: el cliente envía el porcentaje, nunca el importe.
+    const surchargePercent =
+      input.financingType === FinancingType.CONTADO
+        ? 0
+        : Math.round((input.surchargePercent ?? 0) * 100) / 100;
+    const surcharge = surchargeAmount(subtotal - input.discount, surchargePercent);
+
+    const total = subtotal - input.discount + surcharge;
     const saleNumber = await nextSaleNumber(tx);
 
     const sale = await tx.sale.create({
@@ -381,6 +394,8 @@ export async function createSale(input: CreateSaleInput): Promise<{ id: string; 
         customerId: input.customerId ?? null,
         subtotal,
         discount: input.discount,
+        surchargePercent,
+        surchargeAmount: surcharge,
         total,
         paymentMethod: input.paymentMethod,
         financingType: input.financingType,
@@ -518,6 +533,12 @@ export async function createSale(input: CreateSaleInput): Promise<{ id: string; 
         total: { anterior: null, nuevo: total },
         equipos: { anterior: null, nuevo: devices.length },
         financiacion: { anterior: null, nuevo: input.financingType },
+        ...(surcharge > 0
+          ? {
+              recargoPorcentaje: { anterior: null, nuevo: surchargePercent },
+              recargo: { anterior: null, nuevo: surcharge },
+            }
+          : {}),
       },
     });
 

@@ -28,6 +28,8 @@ enum UserStatus {
 /// Estado físico/comercial del equipo. Ampliable con `ALTER TYPE ... ADD VALUE`.
 enum DeviceCondition {
   NUEVO_SELLADO
+  /// Equipo nuevo, sin uso, pero con la caja o el film abierto.
+  NUEVO_SIN_SELLAR
   USADO
 }
 
@@ -340,6 +342,12 @@ model Sale {
 
   subtotal Decimal @db.Decimal(12, 2)
   discount Decimal @default(0) @db.Decimal(12, 2)
+  /// Recargo por financiación (interés), aplicado sobre `subtotal - discount`.
+  /// El porcentaje se guarda junto al importe para poder reconstruir la
+  /// operación aunque el plan de financiación cambie después.
+  surchargePercent Decimal @default(0) @db.Decimal(6, 2)
+  surchargeAmount  Decimal @default(0) @db.Decimal(12, 2)
+  /// total = subtotal - discount + surchargeAmount
   total    Decimal @db.Decimal(12, 2)
 
   paymentMethod PaymentMethod
@@ -371,6 +379,28 @@ model Sale {
   @@index([status, saleDate])
   @@index([financingType])
   @@map("sales")
+}
+
+/// Plan de financiación sugerido: recargo (interés) por cantidad de cuotas.
+///
+/// Es un valor por defecto: el vendedor puede cambiar el porcentaje al
+/// registrar cada venta. La venta guarda el porcentaje que realmente se aplicó,
+/// por eso editar o borrar un plan nunca altera ventas ya registradas.
+/// Solo tiene sentido para TARJETA y FINANCIACION_LOCAL (CHECK en la base).
+model FinancingPlan {
+  id               String        @id @default(cuid())
+  type             FinancingType
+  installments     Int
+  /// 0 = cuotas sin interés.
+  surchargePercent Decimal       @default(0) @db.Decimal(6, 2)
+  /// Un plan inactivo no se ofrece en la venta ni en la tienda.
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([type, installments])
+  @@index([isActive])
+  @@map("financing_plans")
 }
 
 /// Cuota de una venta financiada por el local.

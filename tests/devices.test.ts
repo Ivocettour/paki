@@ -74,6 +74,16 @@ describe("Alta de celulares", () => {
     expect(audit[0].action).toBe("CREAR_PRODUCTO");
   });
 
+  it("acepta un equipo nuevo sin sellar, sin batería declarada", async () => {
+    const { id } = await createDevice(
+      deviceInput({ modelId: fixtures.modelId, condition: "NUEVO_SIN_SELLAR" }),
+    );
+
+    const device = await testDb.device.findUniqueOrThrow({ where: { id } });
+    expect(device.condition).toBe("NUEVO_SIN_SELLAR");
+    expect(device.batteryPercent).toBeNull();
+  });
+
   it("rechaza un IMEI duplicado con un mensaje del dominio", async () => {
     await createDevice(deviceInput({ modelId: fixtures.modelId }));
 

@@ -13,9 +13,15 @@ export function InventoryStatusBadge({ status }: { status: InventoryStatus }) {
   return <Badge tone={INVENTORY_TONES[status]}>{INVENTORY_STATUS_LABELS[status]}</Badge>;
 }
 
+const CONDITION_TONES = {
+  NUEVO_SELLADO: "accent",
+  NUEVO_SIN_SELLAR: "success",
+  USADO: "neutral",
+} as const;
+
 export function ConditionBadge({ condition }: { condition: DeviceCondition }) {
   return (
-    <Badge tone={condition === "NUEVO_SELLADO" ? "accent" : "neutral"}>
+    <Badge tone={CONDITION_TONES[condition]}>
       {DEVICE_CONDITION_LABELS[condition]}
     </Badge>
   );

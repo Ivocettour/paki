@@ -25,7 +25,7 @@ fundas iguales son **un registro con stock 30**, que sube y baja.
 4. [Roles: qué puede hacer cada uno](#roles-qué-puede-hacer-cada-uno)
 5. [Cómo se usa el sistema](#cómo-se-usa-el-sistema)
 6. [Cuotas y financiación](#cuotas-y-financiación)
-7. [Variables de entorno](#variables-de-entorno)
+7. [Tienda pública](#tienda-pública) · [Variables de entorno](#variables-de-entorno)
 8. [Todos los comandos](#todos-los-comandos)
 9. [Despliegue en Vercel](#despliegue-en-vercel)
 10. [Crear el primer administrador en producción](#crear-el-primer-administrador-en-producción)
@@ -186,8 +186,10 @@ Campos obligatorios: modelo, color, capacidad, estado, IMEI y precio de venta.
 
 - El **IMEI no puede repetirse**. Si ya existe, el sistema lo avisa con un
   mensaje claro y no guarda nada.
+- Hay tres estados: **Nuevo sellado** (caja cerrada), **Nuevo sin sellar**
+  (nuevo, sin uso, pero con la caja o el film abierto) y **Usado**.
 - Si el estado es **Usado**, el porcentaje de batería es obligatorio.
-- Si es **Nuevo sellado**, la batería es opcional.
+- Si es **Nuevo sellado** o **Nuevo sin sellar** (nuevo, pero con la caja abierta), la batería es opcional.
 - Para accesorios u otros productos sin IMEI, desmarcá la casilla
   *"Este producto requiere IMEI"*.
 
@@ -400,6 +402,32 @@ El recordatorio de cuotas reclama **únicamente** las de financiación propia.
 Una venta en 12 cuotas con tarjeta no aparece como deuda, porque el local ya
 cobró.
 
+### Recargo (interés) por cantidad de cuotas
+
+Financiar cuesta: el precio sube según en cuántas cuotas se paga. Ese recargo
+**se define a mano**, en dos niveles:
+
+1. **Planes sugeridos** (*Configuración → Financiación en cuotas*). Por cada
+   tipo (tarjeta o financiación del local) y cantidad de cuotas se carga el
+   porcentaje de recargo. `0 %` significa cuotas sin interés. Un plan inactivo
+   no se ofrece al vender ni en la tienda.
+2. **Ajuste en cada venta.** Al registrar la venta, el recargo se completa solo
+   con el del plan elegido, pero el vendedor puede escribir cualquier otro
+   porcentaje (por ejemplo, para una cantidad de cuotas sin plan).
+
+El recargo se aplica sobre `subtotal − descuento` y la venta queda así:
+
+```
+total = subtotal − descuento + recargo
+```
+
+- Las cuotas de la financiación del local reparten el **total con recargo**.
+- La venta guarda el porcentaje y el importe que se aplicaron. Editar o borrar
+  un plan después **no cambia** ventas ya registradas.
+- El recargo se calcula en el servidor; el navegador solo envía el porcentaje.
+- En las ventas de contado el recargo es siempre 0.
+- Cada cambio de un plan, y el recargo de cada venta, queda en la auditoría.
+
 ### La pantalla de Cuotas
 
 Sección `Cuotas`. Arriba, tres totales:
@@ -440,6 +468,30 @@ Si el local no está en Argentina, cambiá `BUSINESS_TIME_ZONE` en
 
 ---
 
+## Tienda pública
+
+Los clientes ven el stock en **`/tienda`**, sin iniciar sesión. Su diseño sigue
+el de apple.com: barra de navegación oscura y translúcida, portada con
+secciones a pantalla completa, tarjetas redondeadas y tipografía grande.
+
+| Página | Qué muestra |
+| --- | --- |
+| `/tienda` | Portada: estados del equipo, recién llegados, categorías y cuotas |
+| `/tienda/catalogo` | Catálogo con filtros (tipo, marca, estado, almacenamiento, precio) y orden |
+| `/tienda/equipo/<id>` | Ficha: precio, estado, batería, cuánto sale cada cuota y botón de WhatsApp |
+| `/tienda/accesorios` | Accesorios con stock, por rubro |
+
+- Solo aparecen equipos **disponibles**: cuando uno se vende, desaparece solo.
+- **Nunca** se publican IMEI, número de serie, precio de compra ni
+  observaciones internas; cada consulta elige sus campos explícitamente.
+- Los equipos se dibujan con el color real del producto (no hay fotos cargadas).
+- Los valores de cada cuota salen de los planes de *Configuración*, con la
+  misma cuenta que usa el formulario de venta.
+- Quien abre el dominio raíz sin sesión llega a la tienda. El personal entra
+  desde *Acceso del personal* (pie de página) o directamente en `/login`.
+- Los datos del local (nombre, WhatsApp, dirección, horario, Instagram) se
+  configuran con variables `NEXT_PUBLIC_STORE_*`. Todas son opcionales.
+
 ## Variables de entorno
 
 Plantilla completa en [`.env.example`](.env.example).
@@ -451,6 +503,9 @@ Plantilla completa en [`.env.example`](.env.example).
 | `AUTH_SECRET` | Sí | Secreto que firma las sesiones. Generar con `npx auth secret`. |
 | `SEED_PASSWORD` | Solo desarrollo | Contraseña de los usuarios demo. |
 | `TEST_DATABASE_URL` | Solo tests | Base de tests. Por defecto `paki_test`. |
+| `NEXT_PUBLIC_STORE_NAME` | No | Nombre del local en la tienda. Por defecto `Paki`. |
+| `NEXT_PUBLIC_STORE_WHATSAPP` | No | WhatsApp con código de país y sin signos. Habilita el botón *Consultar*. |
+| `NEXT_PUBLIC_STORE_ADDRESS` / `_HOURS` / `_INSTAGRAM` | No | Dirección, horario e Instagram que se muestran en la tienda. |
 | `ALLOW_PRODUCTION_SEED` | No | Habilita el seed en producción. **No la definas** salvo que sepas exactamente por qué. |
 
 Ningún secreto está en el código ni se expone al navegador. El archivo `.env`

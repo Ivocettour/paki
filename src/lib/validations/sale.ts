@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FinancingType, PaymentMethod, SaleStatus } from "@prisma/client";
+import { MAX_SURCHARGE_PERCENT } from "@/lib/domain/financing";
 
 const money = z
   .number({ error: "Ingresá un importe válido." })
@@ -54,6 +55,14 @@ export const createSaleSchema = z
       .max(60, { error: "No se admiten más de 60 cuotas." })
       .nullable()
       .optional(),
+    /// Recargo (interés) manual por financiación. Se ignora en ventas de contado.
+    surchargePercent: z
+      .number({ error: "Ingresá un porcentaje válido." })
+      .min(0, { error: "El recargo no puede ser negativo." })
+      .max(MAX_SURCHARGE_PERCENT, {
+        error: `El recargo no puede superar el ${MAX_SURCHARGE_PERCENT}%.`,
+      })
+      .default(0),
     firstDueDate: z.coerce.date().nullable().optional(),
     notes: z
       .string()
@@ -104,7 +113,11 @@ export const saleFiltersSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
 });
 
-export type CreateSaleInput = z.output<typeof createSaleSchema>;
+/// El recargo es opcional para quien llama al servicio: una venta sin él es
+/// una venta sin interés.
+export type CreateSaleInput = Omit<z.output<typeof createSaleSchema>, "surchargePercent"> & {
+  surchargePercent?: number;
+};
 export type CreateSaleFormInput = z.input<typeof createSaleSchema>;
 export type CancelSaleInput = z.output<typeof cancelSaleSchema>;
 export type SaleFilters = z.output<typeof saleFiltersSchema>;

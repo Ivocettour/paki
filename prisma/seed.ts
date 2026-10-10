@@ -153,6 +153,7 @@ async function main() {
   await prisma.device.deleteMany();
   await prisma.deviceModel.deleteMany();
   await prisma.brand.deleteMany();
+  await prisma.financingPlan.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.supplier.deleteMany();
   await prisma.user.deleteMany();
@@ -262,10 +263,28 @@ async function main() {
     }
   }
 
+  console.log("Cargando planes de financiación…");
+  await prisma.financingPlan.createMany({
+    data: [
+      { type: FinancingType.TARJETA, installments: 3, surchargePercent: 0 },
+      { type: FinancingType.TARJETA, installments: 6, surchargePercent: 12 },
+      { type: FinancingType.TARJETA, installments: 12, surchargePercent: 25 },
+      { type: FinancingType.FINANCIACION_LOCAL, installments: 3, surchargePercent: 10 },
+      { type: FinancingType.FINANCIACION_LOCAL, installments: 6, surchargePercent: 20 },
+      { type: FinancingType.FINANCIACION_LOCAL, installments: 12, surchargePercent: 40 },
+    ],
+  });
+
   console.log("Creando inventario…");
   const devices = [];
   for (let i = 0; i < 40; i += 1) {
-    const condition = Math.random() < 0.45 ? DeviceCondition.NUEVO_SELLADO : DeviceCondition.USADO;
+    const roll = Math.random();
+    const condition =
+      roll < 0.3
+        ? DeviceCondition.NUEVO_SELLADO
+        : roll < 0.45
+          ? DeviceCondition.NUEVO_SIN_SELLAR
+          : DeviceCondition.USADO;
     const isUsed = condition === DeviceCondition.USADO;
     const purchasePrice = randomInt(300, 900) * 1000;
     const creator = randomOf(admins);
@@ -276,7 +295,7 @@ async function main() {
         color: randomOf(COLORS),
         storageGb: randomOf([64, 128, 256, 512]),
         condition,
-        // La batería es obligatoria en usados; en sellados queda sin declarar.
+        // La batería es obligatoria en usados; en equipos nuevos queda sin declarar.
         batteryPercent: isUsed ? randomInt(78, 100) : null,
         imei: generateImei(100000000 + i),
         serialNumber: `SN${randomInt(100000, 999999)}`,
