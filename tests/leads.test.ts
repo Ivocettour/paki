@@ -14,6 +14,7 @@ import {
   updateFollowUp,
 } from "@/lib/services/leads/follow-up";
 import { runDailyDigest } from "@/lib/services/leads/digest";
+import { markRepliedManually } from "@/lib/services/leads/manual-reply";
 import { handleWhatsAppEvents } from "@/lib/services/leads/channels";
 import { parseWhatsAppPayload } from "@/lib/integrations/whatsapp/payload";
 import {
@@ -522,5 +523,47 @@ describe("Webhook de WhatsApp", () => {
 
     await handleWhatsAppEvents(status("failed", { errors: [{ code: 131026, title: "No entregado" }] }));
     expect((await testDb.leadMessage.findUniqueOrThrow({ where: { id: out.id } })).status).toBe("FALLIDO");
+  });
+});
+
+describe("Respuesta enviada desde el WhatsApp propio", () => {
+  it("queda registrada en la conversación y la consulta deja de esperar", async () => {
+    const leadId = await newLead();
+    const text = "Hola Ana, sí lo tenemos. Está a $900.000, ¿pasás a verlo?";
+
+    await markRepliedManually({ leadId, body: text, markPriceSent: true, nextContactDays: 3 });
+
+    const lead = await testDb.lead.findUniqueOrThrow({ where: { id: leadId } });
+    expect(lead.needsReply).toBe(false);
+    expect(lead.stage).toBe("PRECIO_ENVIADO");
+    expect(lead.nextContactAt!.getTime()).toBeGreaterThan(Date.now());
+
+    const out = await testDb.leadMessage.findFirstOrThrow({ where: { leadId, direction: "SALIENTE" } });
+    expect(out.body).toBe(text);
+    expect(out.sentById).toBe(fixtures.adminId);
+    // No se envió nada: no tiene id de mensaje de WhatsApp.
+    expect(out.externalId).toBeNull();
+    expect(await testDb.auditLog.count({ where: { action: "ENVIAR_MENSAJE", entityId: leadId } })).toBe(1);
+  });
+
+  it("no deja registrar dos veces el mismo texto ni un mensaje vacío", async () => {
+    const leadId = await newLead();
+    const text = "Hola Ana, te paso los datos del equipo que consultaste.";
+
+    await markRepliedManually({ leadId, body: text });
+    await expect(markRepliedManually({ leadId, body: text })).rejects.toThrow(/ya figura/);
+    await expect(markRepliedManually({ leadId, body: "   " })).rejects.toThrow(AppError);
+    expect(await testDb.leadMessage.count({ where: { leadId, direction: "SALIENTE" } })).toBe(1);
+  });
+
+  it("el vendedor solo puede registrarlo en sus propias consultas", async () => {
+    const mine = await newLead({ phone: "362 400-0030", fullName: "Mía" });
+    const theirs = await newLead({ phone: "362 400-0031", fullName: "Ajena" });
+    await testDb.lead.update({ where: { id: mine }, data: { assigneeId: fixtures.sellerId } });
+    await testDb.lead.update({ where: { id: theirs }, data: { assigneeId: sellerB } });
+
+    actAs({ id: fixtures.sellerId, role: "VENDEDOR" });
+    await expect(markRepliedManually({ leadId: mine, body: "Hola, te respondo por acá." })).resolves.toBeUndefined();
+    await expect(markRepliedManually({ leadId: theirs, body: "Hola, te respondo por acá." })).rejects.toThrow(AppError);
   });
 });

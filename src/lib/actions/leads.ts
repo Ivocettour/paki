@@ -7,6 +7,7 @@ import { errors } from "@/lib/errors";
 import { generateDraft } from "@/lib/services/leads/draft";
 import { assertLeadAccess } from "@/lib/services/leads/access";
 import { sendReply, type SendResult } from "@/lib/services/leads/send";
+import { markRepliedManually } from "@/lib/services/leads/manual-reply";
 import {
   addNote,
   createManualLead,
@@ -22,6 +23,7 @@ import { rewriteText } from "@/lib/ai";
 import { storeConfig } from "@/lib/store-config";
 import {
   manualLeadSchema,
+  manualReplySchema,
   noteSchema,
   sendReplySchema,
   simulatorSchema,
@@ -52,6 +54,15 @@ export async function sendReplyAction(input: unknown): Promise<ActionResult<Send
     const result = await sendReply(data);
     revalidateLeads(data.leadId);
     return result;
+  });
+}
+
+/// Deja registrada una respuesta que se mandó desde el WhatsApp propio.
+export async function markRepliedAction(input: unknown): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const data = parseOrThrow(manualReplySchema, input);
+    await markRepliedManually(data);
+    revalidateLeads(data.leadId);
   });
 }
 

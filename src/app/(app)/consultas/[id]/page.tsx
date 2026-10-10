@@ -22,6 +22,7 @@ import { InventoryStatusBadge } from "@/components/ui/status";
 import { FollowForm } from "./follow-form";
 import { NotesPanel } from "./notes-panel";
 import { ReassignForm } from "./reassign-form";
+import { ManualReply } from "./manual-reply";
 import { ReplyPanel, type TemplateOption } from "./reply-panel";
 
 export const metadata = { title: "Consulta" };
@@ -132,6 +133,23 @@ export default async function ConsultaPage({ params }: { params: Promise<{ id: s
               />
             </CardBody>
           </Card>
+
+          {lead.phone ? (
+            <Card>
+              <CardHeader
+                title="Responder desde mi WhatsApp"
+                description="Para cuando el envío desde el sistema no está disponible."
+              />
+              <CardBody>
+                <ManualReply
+                  leadId={lead.id}
+                  phone={lead.phone}
+                  initialText={lead.draft?.body ?? ""}
+                  draftId={lead.draft?.id ?? null}
+                />
+              </CardBody>
+            </Card>
+          ) : null}
         </div>
 
         <div className="space-y-4">

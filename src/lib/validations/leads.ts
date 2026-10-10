@@ -59,6 +59,18 @@ export const sendReplySchema = z.object({
     .optional(),
 });
 
+export const manualReplySchema = z.object({
+  leadId: z.string().min(1),
+  body: z
+    .string()
+    .trim()
+    .min(1, { error: "Pegá o escribí lo que le mandaste." })
+    .max(4000, { error: "El mensaje es demasiado largo." }),
+  draftId: z.string().nullish(),
+  markPriceSent: z.boolean().optional(),
+  nextContactDays: z.number().int().min(1).max(365).optional(),
+});
+
 export const updateFollowUpSchema = z
   .object({
     stage: z.enum(LeadStage, { error: "Elegí una etapa." }),
